@@ -5,7 +5,7 @@ from datetime import datetime
 from litellm import completion
 import shutil
 
-from .utils.content_from_file import message_from_files
+from .utils.message_from_files import message_from_files
 from .utils.parse_md import env_from_md, ignore_from_md
 from .utils.parse_files import parse_files
 from .utils.prompts import update_files_prompt
