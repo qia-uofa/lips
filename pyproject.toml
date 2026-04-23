@@ -10,8 +10,6 @@ authors = [
   { name="Qi", email="qia@arizona.edu" }
 ]
 dependencies = [
-  "litellm",
-  "pathspec"
 ]
 
 [tool.setuptools.packages.find]
