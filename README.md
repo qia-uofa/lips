@@ -2,7 +2,7 @@
   
 ## Installation
 ```bash
-pip install --force-reinstall --no-cache-dir git+https://github.com/mandelbroetchen/lips.git
+python3 -m pip install --force-reinstall --no-cache-dir git+https://github.com/mandelbroetchen/lips.git
 ```
 
 
