@@ -1,5 +1,5 @@
 ```env
-TARGET=specification
+TARGET=specs
 ```
 
 # Simple Python Project Documentation Composer Prompt
