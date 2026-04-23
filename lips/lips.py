@@ -37,21 +37,21 @@ class Stage:
         self.pipeline = pipeline
         self.root = pipeline.root / name
     
-    def state_message(self, ignore=''):
-        state_path = (self.root / 'state')
-        state_path.mkdir(parents=True, exist_ok=True)
+    def repo_message(self, ignore=''):
+        repo_path = (self.root / 'repo')
+        repo_path.mkdir(parents=True, exist_ok=True)
         spec = pathspec.PathSpec.from_lines('gitwildmatch', ignore.splitlines())
         files = [
             f.resolve()
-            for f in state_path.rglob('*')
-            if f.is_file() and not spec.match_file(f.relative_to(state_path))]
+            for f in repo_path.rglob('*')
+            if f.is_file() and not spec.match_file(f.relative_to(repo_path))]
         return message_from_files(files)
     
     def purge(self):
-        state_path = (self.root / 'state')
-        state_path.mkdir(parents=True, exist_ok=True)
+        repo_path = (self.root / 'repo')
+        repo_path.mkdir(parents=True, exist_ok=True)
         
-        for f in state_path.rglob('*'):
+        for f in repo_path.rglob('*'):
             if f.is_dir():
                 shutil.rmtree(f)
             else:
@@ -72,21 +72,21 @@ class Stage:
         messages = []
         
         if target.name == self.name:
-            messages.append(self.state_message(ignore))
+            messages.append(self.repo_message(ignore))
             messages.append({
                 'role': 'assistant',
-                'content': f'I see. This is the current state of {self.name} needed to be updated.'
+                'content': f'I see. This is the current repo of {self.name} needed to be updated.'
             })
         else:
-            messages.append(self.state_message(ignore))
+            messages.append(self.repo_message(ignore))
             messages.append({
                 'role': 'assistant',
-                'content': f'I see. This is the current state of {self.name} needed to be referenced for generation of {target.name}.'
+                'content': f'I see. This is the current repo of {self.name} needed to be referenced for generation of {target.name}.'
             })
-            messages.append(target.state_message('*.verify.md'))
+            messages.append(target.repo_message('*.verify.md'))
             messages.append({
                 'role': 'assistant',
-                'content': f'I see. This is the current state of {target.name} needed to be updated, based on the state of {self.name}.'
+                'content': f'I see. This is the current repo of {target.name} needed to be updated, based on the repo of {self.name}.'
             })
 
         messages.append({
@@ -95,12 +95,12 @@ class Stage:
         })
         messages.append({
             'role': 'assistant',
-            'content': f'I see. This is the prompt for generating/updating the state of {target.name}.'
+            'content': f'I see. This is the prompt for generating/updating the repo of {target.name}.'
         })
 
         messages.append({
             'role': 'user',
-            'content': update_files_prompt(target.root / 'state')
+            'content': update_files_prompt(target.root / 'repo')
         })
 
         self.log_json('messages', messages)
