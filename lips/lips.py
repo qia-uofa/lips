@@ -114,7 +114,7 @@ class Stage:
 
         full_text = response.choices[0].message.content
 
-        self.log_text('response', 'md', full_text)
+        self.log_text('response', '.md', full_text)
 
         files_dict = parse_files(full_text)
 
