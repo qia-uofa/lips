@@ -7,7 +7,7 @@ name = "LIPS"
 version = "0.1.0"
 description = "LLM-driven iterative project synthesis"
 authors = [
-  { name="Qi", email="" }
+  { name="Qi", email="qia@arizona.edu" }
 ]
 dependencies = [
   "litellm",
