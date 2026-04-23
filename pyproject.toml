@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "LIPS"
+version = "0.1.0"
+description = "LLM-driven iterative project synthesis"
+authors = [
+  { name="Qi", email="" }
+]
+dependencies = [
+  "litellm",
+  "minitypes",
+  "pathspec"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
