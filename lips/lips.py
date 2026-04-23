@@ -75,18 +75,18 @@ class Stage:
             messages.append(self.state_message(ignore))
             messages.append({
                 'role': 'assistant',
-                'content': 'I see. This is the current state of {self.name} needed to be updated.'
+                'content': f'I see. This is the current state of {self.name} needed to be updated.'
             })
         else:
             messages.append(self.state_message(ignore))
             messages.append({
                 'role': 'assistant',
-                'content': 'I see. This is the current state of {self.name} needed to be referenced for generation of {target.name}.'
+                'content': f'I see. This is the current state of {self.name} needed to be referenced for generation of {target.name}.'
             })
             messages.append(target.state_message('*.verify.md'))
             messages.append({
                 'role': 'assistant',
-                'content': 'I see. This is the current state of {target.name} needed to be updated, based on the state of {self.name}.'
+                'content': f'I see. This is the current state of {target.name} needed to be updated, based on the state of {self.name}.'
             })
 
         messages.append({
@@ -95,7 +95,7 @@ class Stage:
         })
         messages.append({
             'role': 'assistant',
-            'content': 'I see. This is the prompt for generating/updating the state of {target.name}.'
+            'content': f'I see. This is the prompt for generating/updating the state of {target.name}.'
         })
 
         messages.append({
