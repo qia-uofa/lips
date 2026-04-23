@@ -16,7 +16,8 @@ class Lips:
         self.workspace = Path(workspace).resolve()
         self.pipelines = {}
         for root in self.workspace.iterdir():
-            self.pipelines[root.name] = Pipeline(root)
+            if root.is_dir():
+                self.pipelines[root.name] = Pipeline(root)
 
 class Pipeline:
     def __init__(self, root):

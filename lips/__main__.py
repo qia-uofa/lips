@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -12,6 +13,8 @@ def parse_args():
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
     build.add_argument('mode', nargs='?', default='compile', help='Use $source$/config/$mode$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
+    build.add_argument('--api-config', '-a', default='api-config.json', help='')
+
 
     build = subparsers.add_parser('purge', help='')
     build.add_argument('--pipeline', '-p', action='store_true', help='')
@@ -27,12 +30,17 @@ def create():
 
 if __name__ == '__main__':
     load_dotenv()
-    api_key = os.getenv('API_KEY')
+
 
     args = parse_args()
 
     if args.command == 'build':
+        api_key = os.getenv('API_KEY')
+        with open(args.api_config) as f:
+            api_config = json.load(f)
+
         path = Path(args.stage).resolve()
+
         lips = Lips(path / '../../')
         for pipeline in lips.pipelines.values():
             for stage in pipeline.stages.values():

@@ -1,0 +1,137 @@
+Based on the provided files and the documentation generation prompt, I'll analyze what needs to be created/updated in the specification state directory. Here's my reasoning:
+
+1. **Current State Analysis**:
+   - The `requirement/state` contains:
+     - An empty `.gitignore`
+     - A `requirement.md` with just "Blackhole simulation"
+   - The `specification/state` currently only has an empty `.gitignore`
+
+2. **What Needs to be Generated**:
+   - Since this appears to be a blackhole simulation project, I'll generate all 4 documentation files:
+     1. `README.md` - Project overview and usage
+     2. `features.md` - Core functionalities
+     3. `flowchart.mermaid` - Logic flow diagram
+     4. `project_structure.md` - File organization
+
+3. **Files to Create**:
+   - All 4 documentation files are new and need to be created in the specification state directory
+   - No image files are needed (so no .prompt.md files)
+   - The existing `.gitignore` can remain empty as documentation files don't need to be ignored
+
+Here are the generated files:
+
+<file path="C:\Users\anqia\Desktop\lips\templates\python-project\specification\state\README.md">
+# Blackhole Simulation
+
+A Python-based simulation of blackhole physics, modeling gravitational effects, event horizons, and particle interactions near a blackhole.
+
+## Prerequisites
+- Python 3.8+
+- Required packages (install via `pip install -r requirements.txt`):
+  - numpy
+  - matplotlib
+  - scipy
+
+## Quick Start
+1. Clone the repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Run the simulation: `python main.py --mass 10 --particles 1000`
+
+## Usage Examples
+```bash
+# Basic simulation with default parameters
+python main.py
+
+# Custom blackhole mass (in solar masses) and particle count
+python main.py --mass 20 --particles 5000
+
+# Save visualization output
+python main.py --output visualization.png
+```
+
+## Running Tests
+```bash
+python -m pytest tests/
+```
+</file>
+
+<file path="C:\Users\anqia\Desktop\lips\templates\python-project\specification\state\features.md">
+# Blackhole Simulation Features
+
+## Core Functionalities
+- **Gravitational Field Calculation**: Models Newtonian and relativistic gravitational effects
+- **Particle Trajectory Simulation**: Computes paths of particles near the event horizon
+- **Event Horizon Visualization**: Renders the Schwarzschild radius
+- **Time Dilation Effects**: Simulates relativistic time dilation near the blackhole
+- **Data Export**: Outputs simulation results in CSV and JSON formats
+
+## User Workflows
+1. **Basic Simulation**:
+   - User provides blackhole mass and particle count
+   - System simulates particle trajectories
+   - Outputs visualization and data files
+
+2. **Advanced Analysis**:
+   - User configures simulation parameters (mass, spin, charge)
+   - System runs extended simulation
+   - Generates detailed reports on particle behavior
+
+## Known Limitations
+- Currently uses simplified physics models (not full general relativity)
+- Limited to non-rotating (Schwarzschild) blackholes
+- Particle interactions are approximated
+
+## Future Improvements
+- Add Kerr blackhole (rotating) support
+- Implement more accurate relativistic calculations
+- Add 3D visualization capabilities
+- Include accretion disk modeling
+</file>
+
+<file path="C:\Users\anqia\Desktop\lips\templates\python-project\specification\state\flowchart.mermaid">
+flowchart TD
+    A[Start Simulation] --> B[Initialize Parameters]
+    B --> C[Create Blackhole Model]
+    C --> D[Generate Particles]
+    D --> E[Calculate Trajectories]
+    E --> F{Particle Crossed Event Horizon?}
+    F -->|Yes| G[Remove Particle]
+    F -->|No| H[Update Position]
+    H --> I{Simulation Complete?}
+    I -->|No| E
+    I -->|Yes| J[Generate Visualization]
+    J --> K[Export Data]
+    K --> L[End Simulation]
+</file>
+
+<file path="C:\Users\anqia\Desktop\lips\templates\python-project\specification\state\project_structure.md">
+# Project Structure
+
+```
+blackhole-simulation/
+├── main.py                # Main simulation entry point
+├── blackhole.py           # Blackhole physics models
+├── particles.py           # Particle generation and tracking
+├── visualization.py       # Data visualization functions
+├── utils/                 # Utility functions
+│   ├── physics.py         # Physics calculations
+│   └── io.py              # Input/output helpers
+├── tests/                 # Unit tests
+│   ├── test_blackhole.py
+│   └── test_particles.py
+├── requirements.txt       # Python dependencies
+└── docs/                  # Documentation
+    ├── README.md
+    ├── features.md
+    └── flowchart.mermaid
+```
+
+## File Descriptions
+- **main.py**: Command-line interface and simulation orchestrator
+- **blackhole.py**: Core blackhole physics implementation
+- **particles.py**: Particle system management
+- **visualization.py**: Plotting and visualization functions
+- **utils/**: Helper functions for physics calculations and I/O
+- **tests/**: Unit tests for core functionality
+- **docs/**: Project documentation
+</file>

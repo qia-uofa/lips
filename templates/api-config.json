@@ -1,0 +1,5 @@
+{
+    "model": "mistral/mistral-large-latest",
+    "max_tokens": 20000,
+    "temperature": 0
+}

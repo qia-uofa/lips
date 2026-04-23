@@ -1,0 +1,13 @@
+flowchart TD
+    A[Start Simulation] --> B[Initialize Parameters]
+    B --> C[Create Blackhole Model]
+    C --> D[Generate Particles]
+    D --> E[Calculate Trajectories]
+    E --> F{Particle Crossed Event Horizon?}
+    F -->|Yes| G[Remove Particle]
+    F -->|No| H[Update Position]
+    H --> I{Simulation Complete?}
+    I -->|No| E
+    I -->|Yes| J[Generate Visualization]
+    J --> K[Export Data]
+    K --> L[End Simulation]

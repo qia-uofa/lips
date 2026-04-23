@@ -1,0 +1,44 @@
+[
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "<file path=\"C:\\Users\\anqia\\Desktop\\lips\\templates\\python-project\\requirement\\state\\.gitignore\">\n\n</file>"
+            },
+            {
+                "type": "text",
+                "text": "<file path=\"C:\\Users\\anqia\\Desktop\\lips\\templates\\python-project\\requirement\\state\\requirement.md\">\nBlackhole simulation\n</file>"
+            }
+        ]
+    },
+    {
+        "role": "assistant",
+        "content": "I see. This is the current state of {self.name} needed to be referenced for generation of {target.name}."
+    },
+    {
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "<file path=\"C:\\Users\\anqia\\Desktop\\lips\\templates\\python-project\\specification\\state\\.gitignore\">\n\n</file>"
+            }
+        ]
+    },
+    {
+        "role": "assistant",
+        "content": "I see. This is the current state of {target.name} needed to be updated, based on the state of {self.name}."
+    },
+    {
+        "role": "user",
+        "content": "```env\nTARGET=specification\n```\n\n# Simple Python Project Documentation Composer Prompt\nYou are a technical writer and Python developer. Your task is to generate essential documentation for a simple Python project based on the provided source code.\n\n# Output Files\nGenerate the following lightweight documents to explain and document the application:\n\n## 1. Project README (`README.md`)\n- Project title and brief, clear description of its purpose\n- Prerequisites and quick-start installation instructions (e.g., `pip install -r requirements.txt`)\n- Basic usage examples, including command-line arguments if applicable\n- Instructions for running tests (if tests exist)\n\n## 2. Feature Summary (`features.md`)\n- A bulleted list of the core functionalities\n- Simple user workflows (e.g., \"User provides a CSV, script outputs a summary report\")\n- Known limitations or simple ideas for future improvements\n\n## 3. Basic Logic Flow (`flowchart.mermaid`)\n- A simple system or logic flow diagram showing the main execution path (e.g., input \u00e2\u2020\u2019 processing steps \u00e2\u2020\u2019 output)\n- Generated as a plain text Mermaid flowchart (`.mermaid` using `graph TD` or `flowchart LR`)\n\n## 4. Project Structure (`project_structure.md`)\n- The current or recommended flat folder layout (e.g., `main.py`, `utils.py`, `tests/`)\n- A one-sentence description of what each file or directory handles\n\n# Instructions\n1. Analyze the provided Python script(s) or repository snippet to understand the core functionality and dependencies.\n2. Infer intent \u00e2\u20ac\u201d if comments are sparse, read the function names, variable names, and imports to determine what the script does.\n3. Generate the four output files listed above, populating each with content specific to the analyzed code.\n4. Keep the documentation concise, beginner-friendly, and avoid over-engineering the descriptions. \n5. Output all generated files as distinct markdown blocks.\n\n# Constraints\n- All documents must be written in clear, simple English.\n- Diagrams must use valid, basic Mermaid syntax.\n- Do not assume the existence of complex architecture (like external databases or microservices) unless explicitly present in the code.\n- Do not include sensitive information (credentials, hardcoded API keys, local paths) in any output file."
+    },
+    {
+        "role": "assistant",
+        "content": "I see. This is the prompt for generating/updating the state of {target.name}."
+    },
+    {
+        "role": "user",
+        "content": "\nGenerate only the files that need to be created or updated. Use the following XML format with absolute paths:\n\n<file path=\"C:\\Users\\anqia\\Desktop\\lips\\templates\\python-project\\specification\\state/file-1.py\">\n# file content here\nimport json\n...\n</file>\n\n<file path=\"C:\\Users\\anqia\\Desktop\\lips\\templates\\python-project\\specification\\state/file-2.json\">\n{\n    \"key1\": \"value1\",\n    \"key2\": \"value2\"\n}\n</file>\n\nRules:\n- Start by analyzing and breaking down the problem before doing anything else.\n- Before generating each file, write down your reasoning through the logic and its impact on the overall repository structure.\n- Every file tag must contain the complete file contents \u2014 no partial files, no placeholders.\n- Use the absolute paths for all files, beginning with \"C:\\Users\\anqia\\Desktop\\lips\\templates\\python-project\\specification\\state\". \n- Only include files that are new or modified.\n- If an image file needs to be generated, generate a prompt file with the extension \".prompt.md\". For example, if 'icon.png' needs to be generated, instead, generate 'icon.png.prompt.md', which includes a elaborate prompt for further generation of the image. \n"
+    }
+]
