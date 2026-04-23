@@ -3,7 +3,7 @@ TARGET=specs
 ```
 
 # Simple Python Project Documentation Composer Prompt
-You are a technical writer and Python developer. Your task is to generate essential documentation for a simple Python project based on the provided source code.
+You are a technical writer and Python developer. Your task is to generate essential documentation for a simple Python project based on the given prompt/user requirement.
 
 # Output Files
 Generate the following lightweight documents to explain and document the application:
