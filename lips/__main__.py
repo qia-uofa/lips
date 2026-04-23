@@ -1,7 +1,7 @@
 import argparse
 import json
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 import os
 
 from .lips import Lips
@@ -29,8 +29,7 @@ def create():
     pass
 
 if __name__ == '__main__':
-    load_dotenv()
-
+    load_dotenv(find_dotenv())
 
     args = parse_args()
 

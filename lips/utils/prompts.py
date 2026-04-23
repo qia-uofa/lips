@@ -2,9 +2,8 @@ def update_files_prompt(path):
     return f'''
 Generate only the files that need to be created or updated. Use the following XML format with absolute paths:
 
-<file path="{path}/file-1.py">
-# file content here
-import json
+<file path="{path}/file-1.txt">
+file content here
 ...
 </file>
 
@@ -22,4 +21,5 @@ Rules:
 - Use the absolute paths for all files, beginning with "{path}". 
 - Only include files that are new or modified.
 - If an image file needs to be generated, generate a prompt file with the extension ".prompt.md". For example, if 'icon.png' needs to be generated, instead, generate 'icon.png.prompt.md', which includes a elaborate prompt for further generation of the image. 
+- Respect my last prompt message, only generate or update files specofied by it. 
 '''
