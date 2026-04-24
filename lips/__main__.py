@@ -11,7 +11,7 @@ def parse_args():
     subparsers = parser.add_subparsers(dest='command')
 
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
-    build.add_argument('mode', nargs='?', default='compile', help='Use $source$/config/$mode$.md as prompt.')
+    build.add_argument('mode', nargs='?', default='compile', help='Use $source$/build/$mode$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
     build.add_argument('--api-config', '-a', default='api-config.json', help='')
 

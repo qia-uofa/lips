@@ -119,17 +119,17 @@ def create_stage(lips_root: Path, previous_stage_name: str | None) -> str | None
         return None
 
     stage_dir = lips_root / stage_name
-    config_dir = stage_dir / "config"
+    build_dir = stage_dir / "build"
     repo_dir = stage_dir / "repo"
 
     if stage_dir.exists():
         print(f"  ℹ  Stage '{stage_name}' already exists — skipping creation.")
     else:
         # Create directory structure
-        config_dir.mkdir(parents=True, exist_ok=True)
+        build_dir.mkdir(parents=True, exist_ok=True)
         repo_dir.mkdir(parents=True, exist_ok=True)
 
-        (config_dir / "compile.md").write_text("", encoding="utf-8")
+        (build_dir / "compile.md").write_text("", encoding="utf-8")
         (repo_dir / "prompt.md").write_text("", encoding="utf-8")
         (repo_dir / ".gitignore").write_text("*.verify.md\n", encoding="utf-8")
 
@@ -137,7 +137,7 @@ def create_stage(lips_root: Path, previous_stage_name: str | None) -> str | None
 
     # Patch the *previous* stage's compile.md to point at this stage
     if previous_stage_name:
-        prev_compile = lips_root / previous_stage_name / "config" / "compile.md"
+        prev_compile = lips_root / previous_stage_name / "build" / "compile.md"
         if prev_compile.exists():
             existing = prev_compile.read_text(encoding="utf-8")
             env_block = f"```env\nTARGET={stage_name}\n```\n"

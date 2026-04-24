@@ -64,7 +64,7 @@ class Stage:
 
     def build(self, build_mode, api_key, api_config, debug=False):
 
-        with open(self.root / f'config/{build_mode}.md', 'r') as f:
+        with open(self.root / f'build/{build_mode}.md', 'r') as f:
             prompt = f.read()
             target = self.pipeline.stages[env_from_md(prompt)['TARGET']]
             ignore = ignore_from_md(prompt)
