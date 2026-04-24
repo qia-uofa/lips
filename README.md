@@ -1,139 +1,68 @@
-# LIPS — LLM-driven Iterative Pipeline System
+# LIPS — LLM-driven Iterative Project Synthesizer
 
-LIPS is a CLI tool for building multi-stage, LLM-powered file transformation pipelines. Each stage reads a source repository, sends it to a language model with a prompt, and writes the generated output to a target repository. Stages can chain together to form fully automated code/content generation workflows.
+LIPS is a pipeline framework that uses large language models to iteratively generate, refine, and verify software projects. You define stages and build modes using plain Markdown files; LIPS handles the rest.
 
 ---
 
 ## How It Works
 
+LIPS organizes work into **pipelines** and **stages**. Each stage has a `repo/` directory (the working files) and a `build/` directory (the prompt instructions). When you run a build, LIPS assembles a message from the source stage's repo, optionally the target stage's repo, and the prompt file, then asks an LLM to generate or update files.
+
 ```
 workspace/
 └── my-pipeline/
-    ├── api-config.json       # Model, max_tokens, temperature
-    ├── .env                  # API_KEY=...
+    ├── .env
+    ├── api-config.json
     ├── stage-a/
-    │   ├── config/
-    │   │   └── compile.md    # Prompt + TARGET=stage-b (env block)
-    │   └── repo/             # Source files for this stage
+    │   ├── build/
+    │   │   └── compile.md        ← prompt for this build mode
+    │   └── repo/
+    │       └── ...               ← source files
     └── stage-b/
-        ├── config/
+        ├── build/
         │   └── compile.md
-        └── repo/             # Output files written here
+        └── repo/
+            └── ...               ← generated/updated files
 ```
-
-A **pipeline** is a folder inside the workspace. A **stage** is a subfolder of a pipeline. Each stage has:
-- `repo/` — the working file tree (input or output)
-- `config/<mode>.md` — a prompt file with an embedded `TARGET` env block pointing to the destination stage
-
-When you run `build`, LIPS:
-1. Reads the source stage's `repo/` and serializes it into a message
-2. Reads the target stage's `repo/` (current state)
-3. Sends both, plus the prompt, to the configured LLM
-4. Parses the model's response into files and writes them to the target `repo/`
 
 ---
 
-## Installation
+## Getting Started
+
+### 1. Install
 
 ```bash
+pip install lips
+```
+
+Or clone and install locally:
+
+```bash
+git clone https://github.com/your-org/lips
+cd lips
 pip install -e .
 ```
 
-Requires Python 3.10+ and a [LiteLLM](https://github.com/BerriAI/litellm)-compatible API key.
+### 2. Create a pipeline
 
----
-
-## Quick Start
-
-### 1. Create a pipeline interactively
+Run the interactive wizard from any directory:
 
 ```bash
-python -m lips create
+python3 -m lips create
 ```
 
-This wizard walks you through:
-- Workspace and pipeline naming
-- LLM provider and model selection
-- Max tokens and temperature
-- API key (saved to `.env`)
-- Stage creation
+This prompts you for a workspace root, pipeline name, LLM provider and model, API key, and the names of your stages. It writes the directory structure, an `api-config.json`, and a `.env` file.
 
-### 2. Edit your prompt
+### 3. Configure
 
-Open `<pipeline>/<stage>/config/compile.md` and write your prompt. Add an env block at the top to declare the target stage:
+LIPS reads two config files from your **working directory** when you invoke it — so you can keep them anywhere, as long as you `cd` there first (or pass `--api-config` to point to them explicitly).
 
-````markdown
-```env
-TARGET=stage-b
+**`.env`**
+```
+API_KEY=sk-...
 ```
 
-You are a senior engineer. Given the files in stage-a, generate a complete test suite for stage-b.
-````
-
-### 3. Build
-
-```bash
-python -m lips build <path/to/stage>
-```
-
-Or with a custom build mode (uses `config/<mode>.md`):
-
-```bash
-python -m lips build review path/to/stage
-```
-
-### 4. Purge generated files
-
-Clear a stage's `repo/` and `out/` directories:
-
-```bash
-python -m lips purge path/to/stage
-```
-
-Clear an entire pipeline at once:
-
-```bash
-python -m lips purge --pipeline path/to/pipeline
-```
-
----
-
-## CLI Reference
-
-```
-lips build [mode] <stage>  [--api-config <path>]
-lips purge [--pipeline] <dir>
-lips create
-```
-
-| Argument | Description |
-|---|---|
-| `mode` | Config file to use (`compile` by default) |
-| `stage` | Path to the source stage directory |
-| `--api-config` | Path to `api-config.json` (default: `./api-config.json`) |
-| `--pipeline` | When purging, target the whole pipeline instead of a single stage |
-
----
-
-## Supported LLM Providers
-
-LIPS uses [LiteLLM](https://github.com/BerriAI/litellm) under the hood, so any provider it supports works. The `create` wizard includes shortcuts for:
-
-| Provider | Example models |
-|---|---|
-| Mistral | `mistral-large-latest`, `mistral-small-latest` |
-| OpenAI | `gpt-4o`, `gpt-4o-mini` |
-| Anthropic | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
-| Google | `gemini-2.0-flash`, `gemini-2.0-pro` |
-
-You can also enter any model string manually.
-
----
-
-## Configuration Files
-
-### `api-config.json`
-
+**`api-config.json`**
 ```json
 {
   "model": "mistral/mistral-large-latest",
@@ -142,53 +71,141 @@ You can also enter any model string manually.
 }
 ```
 
-### `.env`
+Any model string supported by [LiteLLM](https://docs.litellm.ai/docs/providers) works here.
 
-```
-API_KEY=your_api_key_here
+### 4. Build
+
+```bash
+python3 -m lips build <path/to/stage>
 ```
 
-### `config/compile.md` (prompt file)
+This runs the default `compile` mode, reading `build/compile.md` from the given stage. The `TARGET` variable in that file determines which stage receives the generated output.
+
+---
+
+## Build Modes
+
+Every `.md` file you place in a stage's `build/` directory becomes a build mode. The file name (without extension) is the mode name.
+
+```bash
+python3 -m lips build my-mode path/to/stage
+```
+
+This reads `path/to/stage/build/my-mode.md` as the prompt. You can define as many modes as you like — `compile.md`, `verify.md`, `patch.md`, `refactor.md`, etc.
+
+Inside each prompt file, a small `env` block tells LIPS where the output goes:
 
 ````markdown
 ```env
 TARGET=stage-b
-IGNORE=*.test.js
 ```
 
-Your prompt here...
+Your prompt instructions here...
 ````
 
-The `TARGET` key specifies which stage receives the generated output. The optional `IGNORE` key is a gitignore-style pattern to exclude files from the source message.
+---
+
+## Example Pipeline: `python-project`
+
+A realistic four-stage pipeline for generating, specifying, implementing, and verifying a Python project:
+
+```
+workspace/
+└── python-project/
+    ├── prompt/          ← seed idea, written by hand
+    ├── specs/           ← LLM-generated specification
+    └── target/          ← LLM-generated implementation
+```
+
+### Stage flow
+
+```
+prompt ──compile──▶ specs ──compile──▶ target
+                                          │
+      ┌───────────────────────────────────┘
+      │
+     verify mode  →  writes *.verify.md into target/repo/
+      │
+     redeem mode   →  reads *.verify.md, fixes files, clears *.verify.md
+```
+
+**`prompt/build/compile.md`** — instructs the LLM to read the raw idea and produce a structured specification in `specs/repo/`.
+
+**`specs/build/compile.md`** — instructs the LLM to read the spec and produce a full implementation in `target/repo/`.
+
+**`target/build/verify.md`** — instructs the LLM to review the current repo, check for bugs, inconsistencies, or incomplete logic, and write its findings to a `*.verify.md` file inside `target/repo/`. These files are gitignored so they don't pollute the actual output.
+
+**`target/build/patch.md`** — instructs the LLM to read the `*.verify.md` files, fix the identified problems, overwrite the affected source files, and then overwrite each `*.verify.md` with an empty string to signal the issues are resolved.
+
+Running a full cycle:
+
+```bash
+cd workspace/python-project
+python3 -m lips build prompt
+python3 -m lips build specs
+python3 -m lips build target
+python3 -m lips build verify target
+# Optionally, skip the above step and write the `*.verify.md` file manually
+python3 -m lips build redeem target
+```
+
+Repeat the `verify` / `redeem` cycle until no issues remain.
 
 ---
 
-## Output Logs
+## CLI Reference
 
-Every build run saves logs to `<stage>/out/`:
+```
+python3 -m lips build [mode] <stage-path> [--api-config <path>]
+python3 -m lips purge <stage-path>
+python3 -m lips purge --pipeline <pipeline-path>
+python3 -m lips create
+```
 
-| File | Contents |
+| Command | Description |
 |---|---|
-| `messages_<timestamp>.json` | Full message list sent to the LLM |
-| `response_<timestamp>.md` | Raw model response |
-| `files_dict_<timestamp>.json` | Parsed file map written to target repo |
+| `build [mode] <stage>` | Run a build mode against a stage. Defaults to `compile`. |
+| `purge <stage>` | Delete all generated files in a stage's `repo/` (preserves `.gitignore`). |
+| `purge --pipeline <dir>` | Purge all stages in a pipeline. |
+| `create` | Interactive wizard to scaffold a new pipeline. |
+
+The `--api-config` flag defaults to `api-config.json` in your current working directory. The `.env` file is also loaded from the working directory. This means you can store both files at the pipeline root and simply `cd` there before invoking LIPS — or keep a shared config elsewhere and pass the path explicitly.
 
 ---
 
-## Project Structure
+## Supported Providers
 
+LIPS uses [LiteLLM](https://docs.litellm.ai) under the hood, so any provider it supports works out of the box. The `lips create` wizard offers shortcuts for:
+
+| Provider | Example model string |
+|---|---|
+| Mistral | `mistral/mistral-large-latest` |
+| OpenAI | `openai/gpt-4o` |
+| Anthropic | `anthropic/claude-opus-4-6` |
+| Google | `google/gemini-2.0-flash` |
+
+For any other provider, enter the model string manually when prompted.
+
+---
+
+## File Format
+
+Generated files are returned by the LLM in a simple XML envelope:
+
+```xml
+<file path="/absolute/path/to/file.py">
+# file contents here
+</file>
 ```
-lips/
-├── __main__.py           # CLI entry point
-├── lips.py               # Lips, Pipeline, Stage classes
-├── commands/
-│   └── create.py         # Interactive pipeline creator
-└── utils/
-    ├── message_from_files.py
-    ├── parse_md.py        # env/ignore block parsing
-    ├── parse_files.py     # LLM response → file dict
-    └── prompts.py         # update_files_prompt builder
+
+LIPS parses these blocks and writes each file to disk. Your prompt files can include an `ignore` block to exclude patterns from the repo snapshot sent to the model:
+
+````markdown
+```ignore
+*.verify.md
+__pycache__/
 ```
+````
 
 ---
 
