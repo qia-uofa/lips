@@ -3,7 +3,7 @@ import re
 def env_from_md(md_text: str) -> dict:
     """Extract env variables from ```env blocks in markdown."""
     env_vars = {}
-    pattern = r"```env\n(.*?)```"
+    pattern = r"```env\n(.*?)\n```"
     
     for block in re.findall(pattern, md_text, re.DOTALL):
         for line in block.splitlines():
@@ -17,7 +17,7 @@ def env_from_md(md_text: str) -> dict:
 def ignore_from_md(md_text: str) -> dict:
     """Extract env variables from ```env blocks in markdown."""
     ignores = []
-    pattern = r"```ignore\n(.*?)```"
+    pattern = r"```ignore\n(.*?)\n```"
     
     for block in re.findall(pattern, md_text, re.DOTALL):
         for line in block.splitlines():
