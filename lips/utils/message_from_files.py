@@ -88,7 +88,7 @@ TYPE_MAP = {
 }
 
 
-def content_block_from_file(file):
+def content_block_from_file(file, repo_path):
     path = Path(file).resolve()
 
     if not path.exists():
@@ -103,9 +103,10 @@ def content_block_from_file(file):
     if kind == 'text':
         with open(path, encoding='utf-8', errors='replace') as f:
             data = f.read()
+        relative_path = path.relative_to(repo_path)
         return {
             "type": "text",
-            "text": f"<file path=\"{path}\">\n{data}\n</file>"
+            "text": f"<file path=\"{relative_path}\">\n{data}\n</file>"
         }
 
     with open(path, 'rb') as f:
@@ -132,10 +133,10 @@ def content_block_from_file(file):
         raise ValueError(f"Unsupported kind: {kind!r} for file: {path.name}")
 
 
-def message_from_files(files):
+def message_from_files(files, repo_path):
     content = []
     for file in files:
-        block = content_block_from_file(file)
+        block = content_block_from_file(file, repo_path)
         if isinstance(block, list):
             content.extend(block)
         else:

@@ -24,7 +24,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-if __name__ == '__main__':
+def main():
     load_dotenv('./.env')
     args = parse_args()
 
@@ -63,3 +63,6 @@ if __name__ == '__main__':
 
     else:
         print("No command specified. Use --help for usage.")
+
+if __name__ == '__main__':
+    main()

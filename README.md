@@ -32,13 +32,13 @@ workspace/
 ### 1. Install
 
 ```bash
-pip install lips
+pip install git+https://github.com/mandelbroetchen/lips.git
 ```
 
 Or clone and install locally:
 
 ```bash
-git clone https://github.com/your-org/lips
+git clone https://github.com/mandelbroetchen/lips
 cd lips
 pip install -e .
 ```

@@ -45,7 +45,7 @@ class Stage:
             f.resolve()
             for f in repo_path.rglob('*')
             if f.is_file() and not spec.match_file(f.relative_to(repo_path))]
-        return message_from_files(files)
+        return message_from_files(files, repo_path)
     
     def purge(self):
         repo_path = (self.root / 'repo')
@@ -64,7 +64,7 @@ class Stage:
 
     def build(self, build_mode, api_key, api_config, debug=False):
 
-        with open(self.root / f'build/{build_mode}.md', 'r') as f:
+        with open(self.root / f'build/{build_mode}.md', 'r', encoding='utf-8') as f:
             prompt = f.read()
             target = self.pipeline.stages[env_from_md(prompt)['TARGET']]
             ignore = ignore_from_md(prompt)
@@ -121,7 +121,7 @@ class Stage:
         self.log_json( "files_dict", files_dict)
 
         for p, content in files_dict.items():
-            path = Path(p)
+            path = target.root / 'repo' / Path(p)
             path.parent.mkdir(parents=True, exist_ok=True)
             with open(path,'w', encoding="utf-8") as f:
                 f.write(content)
