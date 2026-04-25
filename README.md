@@ -32,7 +32,7 @@ workspace/
 ### 1. Install
 
 ```bash
-pip install git+https://github.com/mandelbroetchen/lips.git
+python -m pip install git+https://github.com/mandelbroetchen/lips.git
 ```
 
 Or clone and install locally:
@@ -40,7 +40,7 @@ Or clone and install locally:
 ```bash
 git clone https://github.com/mandelbroetchen/lips
 cd lips
-pip install -e .
+python -m pip install -e .
 ```
 
 ### 2. Create a pipeline
@@ -48,7 +48,7 @@ pip install -e .
 Run the interactive wizard from any directory:
 
 ```bash
-python3 -m lips create
+lips create
 ```
 
 This prompts you for a workspace root, pipeline name, LLM provider and model, API key, and the names of your stages. It writes the directory structure, an `api-config.json`, and a `.env` file.
@@ -59,15 +59,20 @@ LIPS reads two config files from your **working directory** when you invoke it â
 
 **`.env`**
 ```
-API_KEY=sk-...
+MISTRAL_API_KEY=sk-...
 ```
 
 **`api-config.json`**
 ```json
 {
-  "model": "mistral/mistral-large-latest",
-  "max_tokens": 20000,
-  "temperature": 0
+    "generate":{
+        "model": "mistral/mistral-large-latest",
+        "max_tokens": 20000,
+        "temperature": 0,
+        "timeout": 1200
+    },
+
+    "api_var": "MISTRAL_API_KEY"
 }
 ```
 
@@ -76,7 +81,7 @@ Any model string supported by [LiteLLM](https://docs.litellm.ai/docs/providers) 
 ### 4. Build
 
 ```bash
-python3 -m lips build <path/to/stage>
+lips build <path/to/stage>
 ```
 
 This runs the default `compile` mode, reading `build/compile.md` from the given stage. The `TARGET` variable in that file determines which stage receives the generated output.
@@ -88,7 +93,7 @@ This runs the default `compile` mode, reading `build/compile.md` from the given 
 Every `.md` file you place in a stage's `build/` directory becomes a build mode. The file name (without extension) is the mode name.
 
 ```bash
-python3 -m lips build my-mode path/to/stage
+lips build my-mode path/to/stage
 ```
 
 This reads `path/to/stage/build/my-mode.md` as the prompt. You can define as many modes as you like â€” `compile.md`, `verify.md`, `patch.md`, `refactor.md`, etc.
