@@ -1,2 +1,8 @@
 workspace
 LIPS.egg-info
+out
+**/repo/**
+!**/repo/.gitignore
+!**/repo/prompt.md
+.env
+/build

@@ -1,0 +1,10 @@
+{
+    "generate":{
+        "model": "mistral/mistral-large-latest",
+        "max_tokens": 20000,
+        "temperature": 0,
+        "timeout": 1200
+    },
+
+    "api_var": "MISTRAL_API_KEY"
+}

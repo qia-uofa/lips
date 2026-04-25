@@ -66,8 +66,10 @@ class Stage:
 
         with open(self.root / f'build/{build_mode}.md', 'r', encoding='utf-8') as f:
             prompt = f.read()
-            target = self.pipeline.stages[env_from_md(prompt)['TARGET']]
-            ignore = ignore_from_md(prompt)
+            prompt, env = env_from_md(prompt)
+            prompt, ignore = ignore_from_md(prompt)
+
+            target = self.pipeline.stages[env['TARGET']]
         
         messages = []
         
