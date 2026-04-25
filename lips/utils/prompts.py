@@ -18,8 +18,10 @@ Rules:
 - Start by analyzing and breaking down the problem before doing anything else.
 - Before generating each file, write down your reasoning through the logic and its impact on the overall repository structure.
 - Every file tag must contain the complete file contents — no partial files, no placeholders.
-- Use relative paths for all files, beginning with "./", where all output files are stored
+- Use relative paths for all files, beginning with "./", which is the "<masked-path-to-output-repo>". 
 - Only include files that are new or modified.
 - If an image file needs to be generated, generate a prompt file with the extension ".prompt.md". For example, if 'icon.png' needs to be generated, instead, generate 'icon.png.prompt.md', which includes a elaborate prompt for further generation of the image. 
 - Respect my last prompt message, only generate or update files specofied by it. 
+- The output files might be partially generated already. In that case, only generate the missing files. 
+- If the output files already meet the generation standard, opt out and don't generate anything. 
 '''

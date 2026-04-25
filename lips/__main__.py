@@ -29,9 +29,9 @@ def main():
     args = parse_args()
 
     if args.command == 'build':
-        api_key = os.getenv('API_KEY')
         with open(args.api_config) as f:
             api_config = json.load(f)
+        api_key = os.getenv(api_config['api_var'])
 
         path = Path(args.stage).resolve()
 
@@ -40,7 +40,7 @@ def main():
         for pipeline in lips.pipelines.values():
             for stage in pipeline.stages.values():
                 if stage.root.resolve() == path:
-                    stage.build(args.mode, api_key, api_config)
+                    stage.build(args.mode, api_key, api_config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()

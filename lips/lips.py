@@ -37,7 +37,7 @@ class Stage:
         self.pipeline = pipeline
         self.root = pipeline.root / name
     
-    def repo_message(self, ignore=''):
+    def repo_message(self, ignore='', mask = ''):
         repo_path = (self.root / 'repo')
         repo_path.mkdir(parents=True, exist_ok=True)
         spec = pathspec.PathSpec.from_lines('gitwildmatch', ignore.splitlines())
@@ -45,7 +45,7 @@ class Stage:
             f.resolve()
             for f in repo_path.rglob('*')
             if f.is_file() and not spec.match_file(f.relative_to(repo_path))]
-        return message_from_files(files, repo_path)
+        return message_from_files(files, repo_path, mask)
     
     def purge(self):
         repo_path = (self.root / 'repo')
@@ -62,7 +62,7 @@ class Stage:
         if out_path.exists() and out_path.is_dir():
             shutil.rmtree(out_path)
 
-    def build(self, build_mode, api_key, api_config, debug=False):
+    def build(self, build_mode, api_key, generate_config, debug=False):
 
         with open(self.root / f'build/{build_mode}.md', 'r', encoding='utf-8') as f:
             prompt = f.read()
@@ -72,13 +72,13 @@ class Stage:
         messages = []
         
         if target.name == self.name:
-            messages.append(self.repo_message(ignore))
+            messages.append(self.repo_message(ignore, '<masked-path-to-input-repo>'))
             messages.append({
                 'role': 'assistant',
                 'content': f'I see. This is the current repo of {self.name} needed to be updated.'
             })
         else:
-            messages.append(self.repo_message(ignore))
+            messages.append(self.repo_message(ignore, '<masked-path-to-output-repo>'))
             messages.append({
                 'role': 'assistant',
                 'content': f'I see. This is the current repo of {self.name} needed to be referenced for generation of {target.name}.'
@@ -109,7 +109,7 @@ class Stage:
             messages=messages,
             api_key=api_key,
             stream=False,
-            **api_config
+            **generate_config
         )
 
         full_text = response.choices[0].message.content
