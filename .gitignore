@@ -6,3 +6,4 @@ out
 .env
 /build
 __pycache__
+test-pipeline

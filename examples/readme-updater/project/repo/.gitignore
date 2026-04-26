@@ -70,10 +70,3 @@ logs/
 
 # Data exports
 exports/
-
-# mypy
-.mypy_cache/
-
-# Generated files
-*.verify.md
-myenv

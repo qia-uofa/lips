@@ -8,6 +8,7 @@ import subprocess
 
 from .utils.message_from_files import message_from_files
 from .utils.parse_scripts import env_from_script, ignore_from_script
+from .utils.resolve_md import resolve_links
 from .utils.parse_files import parse_files
 from .utils.prompts import output_format_prompt
 
@@ -75,8 +76,8 @@ class Stage:
             self.build_sh(text)
 
     def build_py(self, code):
-        _, env = env_from_script(code,"'''")
-        target = self.pipeline.stages[env['TARGET']]
+        #_, env = env_from_script(code,"'''")
+        #target = self.pipeline.stages[env['TARGET']]
         repo = self.root / 'repo'
         subprocess.run(
             ['python', '-'],
@@ -87,8 +88,8 @@ class Stage:
         )
         
     def build_sh(self, code):
-        code, env = env_from_script(code)
-        target = self.pipeline.stages[env['TARGET']]
+        #code, env = env_from_script(code)
+        #target = self.pipeline.stages[env['TARGET']]
         repo = self.root / 'repo'
         subprocess.run(
             ['bash', '-s'],
@@ -99,31 +100,34 @@ class Stage:
         )
 
      
-    def build_md(self, prompt, api_key, generate_config):
+    def build_md(self, md_text, api_key, generate_config):
         
-        prompt, env = env_from_script(prompt)
-        prompt, ignore = ignore_from_script(prompt)
+        prompt = md_text
+        prompt = resolve_links(prompt, self)
+        
+        prompt, env = env_from_script(prompt, self)
+        prompt, source_ignore, target_ignore = ignore_from_script(prompt)
 
         target = self.pipeline.stages[env['TARGET']]
         
         messages = []
         
         if target.name == self.name:
-            messages.append(self.repo_message(ignore, '<masked-path-to-input-repo>'))
+            messages.append(self.repo_message(source_ignore, '<masked-path-to-input-repo>'))
             messages.append({
                 'role': 'assistant',
-                'content': f'I see. This is the current repo of {self.name} needed to be updated.'
+                'content': f'I see. This is the current state of "{self.name}". I will update it based on your further instructions.'
             })
         else:
-            messages.append(self.repo_message(ignore, '<masked-path-to-output-repo>'))
+            messages.append(self.repo_message(source_ignore, '<masked-path-to-input-repo>'))
             messages.append({
                 'role': 'assistant',
-                'content': f'I see. This is the current repo of {self.name} needed to be referenced for generation of {target.name}.'
+                'content': f'I see. This is the current state of the input repo "{self.name}". I will use it as the source material to generate or update "{target.name}".'
             })
-            messages.append(target.repo_message('*.verify.md'))
+            messages.append(target.repo_message(target_ignore, '<masked-path-to-output-repo>'))
             messages.append({
                 'role': 'assistant',
-                'content': f'I see. This is the current repo of {target.name} needed to be updated, based on the repo of {self.name}.'
+                'content': f'I see. This is the current state of the output repo "{target.name}". I will use "{self.name}" as the source material to generate or update it.'
             })
 
         messages.append({
@@ -132,12 +136,22 @@ class Stage:
         })
         messages.append({
             'role': 'assistant',
-            'content': f'I see. This is the prompt for generating/updating the repo of {target.name}.'
+            'content': f'I see. This is the main instruction for generating/updating the repo of {target.name}.'
         })
 
         messages.append({
             'role': 'user',
             'content': output_format_prompt
+        })
+        
+        messages.append({
+            'role': 'assistant',
+            'content': f'I see. This is the output format for generating/updating the repo of {target.name}.'
+        })
+
+        messages.append({
+            'role': 'user',
+            'content': 'Start.'
         })
 
         self.log_json('messages', messages)

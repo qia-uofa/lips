@@ -6,7 +6,5 @@ This is a project with new feature implemented. However, one or more of the foll
 ```
 README.md
 requirements.txt
-pyproject.toml
-.gitignore
 ```
 Please read the project thoroughly and update the pending files. 
