@@ -1,6 +1,6 @@
 # LIPS — LLM-driven Iterative Project Synthesizer
 
-LIPS is a pipeline framework that uses large language models to iteratively generate, refine, and verify software projects. You define stages and build modes using plain Markdown files; LIPS handles the rest.
+LIPS is a pipeline framework that uses large language models to iteratively generate, refine, and verify software projects. You define stages and build scripts using plain Markdown files; LIPS handles the rest.
 
 ---
 
@@ -88,15 +88,15 @@ This runs the default `compile` mode, reading `build/compile.md` from the given 
 
 ---
 
-## Build Modes
+## Build scripts
 
-Every `.md` file you place in a stage's `build/` directory becomes a build mode. The file name (without extension) is the mode name.
+Every `.md` file you place in a stage's `build/` directory becomes a build mode. The file name (without extension) is the script name.
 
 ```bash
-lips build my-mode path/to/stage
+lips build my-script path/to/stage
 ```
 
-This reads `path/to/stage/build/my-mode.md` as the prompt. You can define as many modes as you like — `compile.md`, `verify.md`, `patch.md`, `refactor.md`, etc.
+This reads `path/to/stage/build/my-mode.md` as the prompt. You can define as many scripts as you like — `compile.md`, `verify.md`, `patch.md`, `refactor.md`, etc.
 
 Inside each prompt file, a small `env` block tells LIPS where the output goes:
 
@@ -216,7 +216,7 @@ python3 -m lips create
 
 | Command | Description |
 |---|---|
-| `build [mode] <stage>` | Run a build mode against a stage. Defaults to `compile`. |
+| `build [mode] <stage>` | Run a build script against a stage. Defaults to `compile`. |
 | `purge <stage>` | Delete all generated files in a stage's `repo/` (preserves `.gitignore`). |
 | `purge --pipeline <dir>` | Purge all stages in a pipeline. |
 | `create` | Interactive wizard to scaffold a new pipeline. |

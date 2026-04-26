@@ -11,7 +11,7 @@ def parse_args():
     subparsers = parser.add_subparsers(dest='command')
 
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
-    build.add_argument('mode', nargs='?', default='compile', help='Use $source$/build/$mode$.md as prompt.')
+    build.add_argument('script', nargs='?', default='compile', help='Use $source$/build/$script$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
     build.add_argument('--api-config', '-a', default='api-config.json', help='')
 
@@ -40,7 +40,18 @@ def main():
         for pipeline in lips.pipelines.values():
             for stage in pipeline.stages.values():
                 if stage.root.resolve() == path:
-                    stage.build(args.mode, api_key, api_config['generate'])
+                    script = Path(args.script)
+                    build_dir = path / 'build'
+                    if not (build_dir / script).exists():
+                        for suffix in ['.md', '.py', '.sh', '.bat']:
+                            if (build_dir / script.with_suffix(suffix)).exists():
+                                script = script.with_suffix(suffix)
+                                break
+                        else:
+                            raise FileNotFoundError(
+                                f"No script found for {args.script!r} in {build_dir}"
+                            )
+                    stage.build(script, api_key, api_config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()

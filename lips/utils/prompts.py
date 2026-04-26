@@ -24,4 +24,7 @@ Rules:
 - Respect my last prompt message, only generate or update files specofied by it. 
 - The output files might be partially generated already. In that case, only generate the missing files. 
 - If the output files already meet the generation standard, opt out and don't generate anything. 
+
+You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:
+<file path="./deleted-file.ext"></file>
 '''

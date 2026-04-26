@@ -1,9 +1,9 @@
 import re
 
-def env_from_md(md_text: str) -> dict:
+def env_from_script(md_text: str, quotation=r'```') -> dict:
     """Extract env variables from ```env blocks in markdown."""
     env_vars = {}
-    pattern = r"```env\n(.*?)\n```"
+    pattern = quotation + r"env\n(.*?)\n" + quotation
     
     for block in re.findall(pattern, md_text, re.DOTALL):
         for line in block.splitlines():
@@ -14,10 +14,10 @@ def env_from_md(md_text: str) -> dict:
     md_text = re.sub(pattern, '', md_text)
     return md_text, env_vars
 
-def ignore_from_md(md_text: str) -> dict:
+def ignore_from_script(md_text: str, quotation=r'```') -> dict:
     """Extract env variables from ```env blocks in markdown."""
     ignores = []
-    pattern = r"```ignore\n(.*?)\n```"
+    pattern = quotation + r"ignore\n(.*?)\n" + quotation
     
     for block in re.findall(pattern, md_text, re.DOTALL):
         for line in block.splitlines():

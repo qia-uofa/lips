@@ -199,6 +199,10 @@ def create():
             temperature = DEFAULT_API_CONFIG["temperature"]
 
         api_config = {"model": model, "max_tokens": max_tokens, "temperature": temperature}
+        api_config = {
+            "generate": api_config,
+            "api_var": "API_KEY"
+        }
         api_config_path.write_text(json.dumps(api_config, indent=2) + "\n", encoding="utf-8")
         print(f"\n  ✓ Saved api-config.json:\n    {json.dumps(api_config, indent=4)}")
 

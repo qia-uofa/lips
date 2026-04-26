@@ -4,9 +4,10 @@ import json
 from datetime import datetime
 from litellm import completion
 import shutil
+import subprocess
 
 from .utils.message_from_files import message_from_files
-from .utils.parse_md import env_from_md, ignore_from_md
+from .utils.parse_scripts import env_from_script, ignore_from_script
 from .utils.parse_files import parse_files
 from .utils.prompts import update_files_prompt
 
@@ -61,15 +62,49 @@ class Stage:
         out_path = (self.root / 'out')
         if out_path.exists() and out_path.is_dir():
             shutil.rmtree(out_path)
+   
+    def build(self, script, api_key=None, generate_config=None):
+        suffix = script.suffix
+        with open(self.root / f'build/{script}', 'r', encoding='utf-8') as f:
+            text = f.read()
+        if suffix == '.md':
+            self.build_md(text, api_key, generate_config)
+        elif suffix == '.py':
+            self.build_py(text)
+        elif suffix == '.sh':
+            self.build_sh(text)
 
-    def build(self, build_mode, api_key, generate_config, debug=False):
+    def build_py(self, code):
+        _, env = env_from_script(code,"'''")
+        target = self.pipeline.stages[env['TARGET']]
+        repo = self.root / 'repo'
+        subprocess.run(
+            ['python', '-'],
+            input=code,
+            text=True,
+            cwd=repo,
+            check=True,
+        )
+        
+    def build_sh(self, code):
+        code, env = env_from_script(code)
+        target = self.pipeline.stages[env['TARGET']]
+        repo = self.root / 'repo'
+        subprocess.run(
+            ['bash', '-s'],
+            input=code,
+            text=True,
+            cwd=repo,
+            check=True,
+        )
 
-        with open(self.root / f'build/{build_mode}.md', 'r', encoding='utf-8') as f:
-            prompt = f.read()
-            prompt, env = env_from_md(prompt)
-            prompt, ignore = ignore_from_md(prompt)
+     
+    def build_md(self, prompt, api_key, generate_config):
+        
+        prompt, env = env_from_script(prompt)
+        prompt, ignore = ignore_from_script(prompt)
 
-            target = self.pipeline.stages[env['TARGET']]
+        target = self.pipeline.stages[env['TARGET']]
         
         messages = []
         
@@ -125,8 +160,14 @@ class Stage:
         for p, content in files_dict.items():
             path = target.root / 'repo' / Path(p)
             path.parent.mkdir(parents=True, exist_ok=True)
-            with open(path,'w', encoding="utf-8") as f:
+            with open(path, 'w', encoding="utf-8") as f:
                 f.write(content)
+
+        repo_root = target.root / 'repo'
+        for f in repo_root.rglob('*'):
+            if f.is_file() and f.stat().st_size == 0:
+                f.unlink()
+        
 
     def log_json(self, name, content):
         now  = datetime.now().strftime("%Y%m%d_%H%M%S")
