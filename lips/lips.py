@@ -9,7 +9,7 @@ import subprocess
 from .utils.message_from_files import message_from_files
 from .utils.parse_scripts import env_from_script, ignore_from_script
 from .utils.parse_files import parse_files
-from .utils.prompts import update_files_prompt
+from .utils.prompts import output_format_prompt
 
 
 class Lips:
@@ -137,7 +137,7 @@ class Stage:
 
         messages.append({
             'role': 'user',
-            'content': update_files_prompt(target.root / 'repo')
+            'content': output_format_prompt
         })
 
         self.log_json('messages', messages)

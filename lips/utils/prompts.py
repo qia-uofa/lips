@@ -1,5 +1,4 @@
-def update_files_prompt(path):
-    return f'''
+output_format_prompt = '''
 Generate only the files that need to be created or updated. Use the following XML format with absolute paths:
 
 <file path="./file-1.txt">
@@ -8,10 +7,10 @@ file content here
 </file>
 
 <file path="./file-2.json">
-{{
+{
     "key1": "value1",
     "key2": "value2"
-}}
+}
 </file>
 
 Rules:
@@ -25,9 +24,8 @@ Rules:
 - The output files might be partially generated already. In that case, only generate the missing files. 
 - If the output files already meet the generation standard, opt out and don't generate anything. 
 
-You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:
+- You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:
 <file path="./deleted-file.ext"></file>
 
-When overwriting, remember to mirror the exact path of the ovverwriten file, but replace the masked path with "./". For example:
-Overwrite <file path="<masked-path-to-output-repo>/to-be-overwritten-file.ext">...</file> with <file path="./to-be-overwritten-file.ext">...</file>
+- When overwriting, remember to mirror the exact path of the ovverwriten file, but replace the masked path with "./". For example, overwrite <file path="<masked-path-to-output-repo>/to-be-overwritten-file.ext">...</file> with <file path="./to-be-overwritten-file.ext">...</file>
 '''
