@@ -27,4 +27,7 @@ Rules:
 
 You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:
 <file path="./deleted-file.ext"></file>
+
+When overwriting, remember to mirror the exact path of the ovverwriten file, but replace the masked path with "./". For example:
+Overwrite <file path="<masked-path-to-output-repo>/to-be-overwritten-file.ext">...</file> with <file path="./to-be-overwritten-file.ext">...</file>
 '''
