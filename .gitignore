@@ -5,3 +5,4 @@ out
 !**/repo/prompt.md
 .env
 /build
+__pycache__
