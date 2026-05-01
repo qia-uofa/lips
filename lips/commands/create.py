@@ -1,39 +1,63 @@
 from pathlib import Path
 import json
-# ── helpers ──────────────────────────────────────────────────────────────────
+import sys
+from dataclasses import dataclass
+
+# ── ANSI styling ──────────────────────────────────────────────────────────────
+
+RESET   = "\033[0m"
+BOLD    = "\033[1m"
+DIM     = "\033[2m"
+GREEN   = "\033[32m"
+CYAN    = "\033[36m"
+YELLOW  = "\033[33m"
+RED     = "\033[31m"
+MAGENTA = "\033[35m"
+WHITE   = "\033[97m"
+
+
+def ok(msg: str):   print(f"  {GREEN}✔{RESET}  {msg}")
+def info(msg: str): print(f"  {CYAN}ℹ{RESET}  {msg}")
+def warn(msg: str): print(f"  {YELLOW}⚠{RESET}  {msg}")
+def err(msg: str):  print(f"  {RED}✘{RESET}  {msg}")
+
+
+def step(n: int, total: int, title: str):
+    bar = f"{CYAN}{'█' * n}{'░' * (total - n)}{RESET}"
+    print(f"\n  {bar}  {BOLD}{WHITE}{title}{RESET}")
+    print(f"  {DIM}{'─' * 52}{RESET}")
+
+
+def section(title: str):
+    print(f"\n  {BOLD}{MAGENTA}▸ {title}{RESET}")
+    print(f"  {DIM}{'─' * 48}{RESET}")
+
+
+def banner():
+    print()
+    print(f"  {BOLD}{CYAN}┌─────────────────────────────────────────────┐{RESET}")
+    print(f"  {BOLD}{CYAN}│{RESET}   {BOLD}{WHITE}LIPS  Pipeline  Creator{RESET}                   {BOLD}{CYAN}│{RESET}")
+    print(f"  {BOLD}{CYAN}└─────────────────────────────────────────────┘{RESET}")
+    print()
+
+
+def _input(label: str) -> str:
+    try:
+        return input(label).strip()
+    except (EOFError, KeyboardInterrupt):
+        print(f"\n\n  {YELLOW}Interrupted.{RESET}\n")
+        sys.exit(0)
+
 
 def prompt(msg: str, default: str | None = None) -> str:
-    """Prompt user for input, showing default value if provided."""
-    if default:
-        msg = f"{msg} [{default}]: "
-    else:
-        msg = f"{msg}: "
+    hint = f" {DIM}[{default}]{RESET}" if default is not None else ""
     while True:
-        value = input(msg).strip()
+        value = _input(f"  {CYAN}?{RESET} {msg}{hint}: ")
         if value:
             return value
         if default is not None:
             return default
-        print("  ✗ This field is required.")
-
-
-def confirm(msg: str, default: bool = True) -> bool:
-    hint = "Y/n" if default else "y/N"
-    while True:
-        raw = input(f"{msg} [{hint}]: ").strip().lower()
-        if raw == "":
-            return default
-        if raw in ("y", "yes"):
-            return True
-        if raw in ("n", "no"):
-            return False
-        print("  ✗ Please enter y or n.")
-
-
-def section(title: str):
-    print(f"\n{'─' * 50}")
-    print(f"  {title}")
-    print(f"{'─' * 50}")
+        err("This field is required.")
 
 
 # ── LLM provider / model catalogue ───────────────────────────────────────────
@@ -78,164 +102,331 @@ DEFAULT_API_CONFIG = {
     "temperature": 0,
 }
 
+MESSAGES_BLOCK = [
+    {"role": "user",      "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)"},
+    {"role": "assistant", "content": "I see. This is the current state of the input repo. I will use it as the source material to generate or update the output repo."},
+    {"role": "user",      "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)"},
+    {"role": "assistant", "content": "I see. This is the current state of the output repo. I will use input repo as the source material to generate or update it."},
+    {"role": "user",      "content": "<env:BUILD_PROMPT>"},
+    {"role": "assistant", "content": "I see. This is the main instruction for generating/updating the repo of the target repo."},
+    {"role": "user",      "content": "<env:FORMAT_PROMPT>"},
+    {"role": "assistant", "content": "I see. This is the output format for generating/updating the repo of <target.name>."},
+    {"role": "user",      "content": "Start."},
+]
+
+FORMAT_BLOCK = (
+    "Generate only the files that need to be created or updated. "
+    "Use the following XML format with absolute paths:\n\n"
+    "<file path=\"./file-1.txt\">\nfile content here\n...\n</file>\n\n"
+    "<file path=\"./file-2.json\">\n{\n    \"key1\": \"value1\",\n    \"key2\": \"value2\"\n}\n</file>\n\n"
+    "Rules:\n"
+    "- Start by analyzing and breaking down the problem before doing anything else.\n"
+    "- Before generating each file, write down your reasoning through the logic and its impact on the overall repository structure.\n"
+    "- Every file tag must contain the complete file contents — no partial files, no placeholders.\n"
+    "- Use relative paths for all files, beginning with \"./\", which is the \"<masked-path-to-output-repo>\". \n"
+    "- Only include files that are new or modified.\n"
+    "- If an image file needs to be generated, generate a prompt file with the extension \".prompt.md\". "
+    "For example, if 'icon.png' needs to be generated, instead, generate 'icon.png.prompt.md', "
+    "which includes a elaborate prompt for further generation of the image. \n"
+    "- Respect my last prompt message, only generate or update files specofied by it. \n"
+    "- The output files might be partially generated already. In that case, only generate the missing files. \n"
+    "- If the output files already meet the generation standard, opt out and don't generate anything. \n\n"
+    "- You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:\n"
+    "<file path=\"./deleted-file.ext\"></file>\n\n"
+    "- When overwriting, remember to mirror the exact path of the ovverwriten file, but replace the masked path with \"./\". "
+    "For example, overwrite <file path=\"<masked-path-to-output-repo>/to-be-overwritten-file.ext\">...</file> "
+    "with <file path=\"./to-be-overwritten-file.ext\">...</file>"
+)
+
+BUILD_PROMPT_TRANSFORM = (
+    "Your task is to transform the repository <env:SOURCE> to <env:TARGET> by generating files. "
+)
+BUILD_PROMPT_FINAL = (
+    "Your task is to update the repository <env:SOURCE> by generating files needed to be updated. "
+)
+
+DEFAULT_BUILD_FILE       = "compile.md"
+DEFAULT_BUILD_FILE_LAST  = "identity.md"
+
+
+# ── model selection ───────────────────────────────────────────────────────────
 
 def select_model() -> str:
-    print("\n  Available providers:")
+    print()
+    print(f"  {BOLD}Available providers:{RESET}")
     for key, prov in PROVIDERS.items():
-        print(f"    {key}. {prov['name']}")
-    print("    0. Enter model string manually")
+        print(f"    {CYAN}{key}{RESET}.  {prov['name']}")
+    print(f"    {DIM}0.  Enter model string manually{RESET}")
 
-    prov_choice = input("  Select provider: ").strip()
+    prov_choice = _input(f"\n  {CYAN}?{RESET} Select provider: ")
     if prov_choice == "0":
-        return input("  Model string: ").strip()
+        return _input(f"  {CYAN}?{RESET} Model string: ")
 
     provider = PROVIDERS.get(prov_choice)
     if not provider:
-        print("  ✗ Invalid choice — using default model.")
+        warn("Invalid choice — using default model.")
         return DEFAULT_API_CONFIG["model"]
 
-    print(f"\n  {provider['name']} models:")
+    print(f"\n  {BOLD}{provider['name']} models:{RESET}")
     for key, model in provider["models"].items():
-        print(f"    {key}. {model}")
+        print(f"    {CYAN}{key}{RESET}.  {DIM}{model}{RESET}")
 
-    model_choice = input("  Select model: ").strip()
+    model_choice = _input(f"\n  {CYAN}?{RESET} Select model: ")
     model = provider["models"].get(model_choice)
     if not model:
-        print("  ✗ Invalid choice — using first model.")
+        warn("Invalid choice — using first model.")
         model = next(iter(provider["models"].values()))
+    ok(f"Selected: {BOLD}{model}{RESET}")
     return model
 
 
-# ── stage creation ────────────────────────────────────────────────────────────
+# ── stage data ────────────────────────────────────────────────────────────────
 
-def create_stage(lips_root: Path, previous_stage_name: str | None) -> str | None:
+@dataclass
+class StageSpec:
+    name: str
+    build_file: str   # e.g. "compile.md" or "build.sh"
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _stem_exists_on_disk(lips_root: Path, stage_name: str, stem: str) -> bool:
+    """True if any file in <stage>/build/ already has the given stem."""
+    build_dir = lips_root / stage_name / "build"
+    if not build_dir.exists():
+        return False
+    return any(f.stem == stem for f in build_dir.iterdir() if f.is_file())
+
+
+# ── collect stage specs (NO disk writes) ─────────────────────────────────────
+
+def collect_stages(lips_root: Path) -> list[StageSpec]:
     """
-    Interactively create one stage directory.
-    Returns the new stage name, or None if the user chose to stop.
+    Prompt stage name then build file alternately.
+    Nothing is written to disk here.
     """
-    section("Add a stage  (leave name blank to finish)")
-    stage_name = input("  Stage name: ").strip()
-    if not stage_name:
-        return None
+    section("Stage collection")
+    info("Enter stage names one by one.  Leave name blank to finish.")
 
-    stage_dir = lips_root / stage_name
-    build_dir = stage_dir / "build"
-    repo_dir = stage_dir / "repo"
+    specs: list[StageSpec] = []
 
-    if stage_dir.exists():
-        print(f"  ℹ  Stage '{stage_name}' already exists — skipping creation.")
+    while True:
+        print()
+        stage_name = _input(f"  {CYAN}+{RESET} Stage name {DIM}(blank = done){RESET}: ")
+        if not stage_name:
+            break
+
+        build_file = _ask_build_file(lips_root, stage_name, is_last=False)
+        if build_file is None:
+            warn(f"Skipping stage '{stage_name}' — resolve the conflict and re-run.")
+            continue
+
+        specs.append(StageSpec(name=stage_name, build_file=build_file))
+        ok(f"Queued  {BOLD}{stage_name}{RESET}  →  build/{build_file}")
+
+    # Fix the last stage: if it was assigned the intermediate default, swap to
+    # the final default (only when the user accepted the default, i.e. the value
+    # equals DEFAULT_BUILD_FILE and DEFAULT_BUILD_FILE != DEFAULT_BUILD_FILE_LAST).
+    if specs and specs[-1].build_file == DEFAULT_BUILD_FILE:
+        old = specs[-1].build_file
+        specs[-1] = StageSpec(name=specs[-1].name, build_file=DEFAULT_BUILD_FILE_LAST)
+        info(
+            f"Last stage build file changed from '{old}' to "
+            f"'{DEFAULT_BUILD_FILE_LAST}'"
+        )
+
+    return specs
+
+
+def _ask_build_file(lips_root: Path, stage_name: str, *, is_last: bool = False) -> str | None:
+    """
+    Ask for a build file name.
+
+    - Default is "identity.md" for the last stage, "compile.md" for all others.
+    - If user presses Enter (accepts default) AND the default stem already exists
+      on disk → warn and return None (caller skips this stage).
+    - If user types a name whose stem already exists on disk → re-prompt.
+    - Otherwise return the chosen filename.
+    """
+    default      = DEFAULT_BUILD_FILE_LAST if is_last else DEFAULT_BUILD_FILE
+    default_stem = Path(default).stem
+
+    while True:
+        raw = _input(f"  {DIM}↵{RESET} Build file {DIM}[{default}]{RESET}: ")
+
+        if not raw:
+            # Accepted default
+            if _stem_exists_on_disk(lips_root, stage_name, default_stem):
+                warn(
+                    f"Default build file stem '{default_stem}' already exists in "
+                    f"'{stage_name}/build/'.  Please use a different stage name or "
+                    f"enter a custom build file."
+                )
+                return None  # signal: skip this stage entirely
+            return default
+
+        # User typed a custom name — check stem for conflicts
+        chosen_stem = Path(raw).stem
+        if _stem_exists_on_disk(lips_root, stage_name, chosen_stem):
+            warn(
+                f"A file with stem '{chosen_stem}' already exists in "
+                f"'{stage_name}/build/'.  Enter a different build file name."
+            )
+            continue  # re-prompt only the build file question
+
+        return raw
+
+
+# ── build file content ────────────────────────────────────────────────────────
+
+def _build_file_content(build_file: str, next_stage: str | None) -> str:
+    """
+    Return content for the build file.
+    Only .md files receive the env block + one-liner prompt.
+    All other extensions are created empty.
+    """
+    if Path(build_file).suffix.lower() != ".md":
+        return ""
+
+    if next_stage is not None:
+        # Intermediate stage: env block at head + transform prompt
+        env_block = f"```env\nTARGET={next_stage}\n```"
+        return f"{env_block}\n{BUILD_PROMPT_TRANSFORM}\n"
     else:
-        # Create directory structure
-        build_dir.mkdir(parents=True, exist_ok=True)
-        repo_dir.mkdir(parents=True, exist_ok=True)
-
-        (build_dir / "compile.md").write_text("", encoding="utf-8")
-        (repo_dir / "prompt.md").write_text("", encoding="utf-8")
-        (repo_dir / ".gitignore").write_text("*.verify.md\n", encoding="utf-8")
-
-        print(f"  ✓ Created stage: {stage_dir}")
-
-    # Patch the *previous* stage's compile.md to point at this stage
-    if previous_stage_name:
-        prev_compile = lips_root / previous_stage_name / "build" / "compile.md"
-        if prev_compile.exists():
-            existing = prev_compile.read_text(encoding="utf-8")
-            env_block = f"```env\nTARGET={stage_name}\n```\n"
-            if f"TARGET={stage_name}" not in existing:
-                prev_compile.write_text(env_block + existing, encoding="utf-8")
-                print(f"  ✓ Prepended TARGET={stage_name} to {prev_compile}")
-
-    return stage_name
+        # Final stage: no env block, update prompt only
+        return f"{BUILD_PROMPT_FINAL}\n"
 
 
-# ── main create flow ──────────────────────────────────────────────────────────
+# ── materialise all stages at once ───────────────────────────────────────────
 
-def create():
-    print("\n╔══════════════════════════════════════╗")
-    print("║       LIPS  Pipeline  Creator        ║")
-    print("╚══════════════════════════════════════╝")
+def materialise_stages(lips_root: Path, specs: list[StageSpec]):
+    """
+    Given the collected specs, create directories and files on disk.
 
-    # ── Step 1: workspace root ────────────────────────────────────────────────
-    section("Step 1 / 5 — Workspace root")
-    workspace_root = Path(prompt("Workspace root folder", default=".")).expanduser()
-    if not workspace_root.exists():
-        workspace_root.mkdir(parents=True)
-        print(f"  ✓ Created {workspace_root}")
+    - If a stage directory does NOT exist: create full scaffold + build file.
+    - If a stage directory DOES exist: only create the build file (build/ subdir
+      is created if missing).
+    """
+    if not specs:
+        return
+
+    section("Creating pipeline structure")
+
+    for i, spec in enumerate(specs):
+        next_stage = specs[i + 1].name if i + 1 < len(specs) else None
+
+        stage_dir = lips_root / spec.name
+        build_dir = stage_dir / "build"
+        repo_dir  = stage_dir / "repo"
+
+        if not stage_dir.exists():
+            # Full scaffold for a brand-new stage
+            build_dir.mkdir(parents=True, exist_ok=True)
+            repo_dir.mkdir(parents=True, exist_ok=True)
+            ok(f"Created stage  {BOLD}{spec.name}{RESET}")
+        else:
+            info(f"Stage '{BOLD}{spec.name}{RESET}' exists — adding build file only.")
+            build_dir.mkdir(parents=True, exist_ok=True)
+
+        # Write the build file
+        build_path = build_dir / spec.build_file
+        content = _build_file_content(spec.build_file, next_stage)
+        build_path.write_text(content, encoding="utf-8")
+        ok(f"Wrote  {BOLD}{spec.name}/build/{spec.build_file}{RESET}")
+
+
+# ── summary ───────────────────────────────────────────────────────────────────
+
+def print_summary(lips_root: Path, specs: list[StageSpec]):
+    print()
+    print(f"  {BOLD}{GREEN}┌─────────────────────────────────────────────┐{RESET}")
+    print(f"  {BOLD}{GREEN}│{RESET}   {BOLD}{WHITE}All done!{RESET}                                  {BOLD}{GREEN}│{RESET}")
+    print(f"  {BOLD}{GREEN}└─────────────────────────────────────────────┘{RESET}")
+    print()
+    print(f"  {DIM}Pipeline root{RESET}  {BOLD}{lips_root.resolve()}{RESET}")
+    if specs:
+        chain = f" {DIM}→{RESET} ".join(
+            f"{CYAN}{s.name}{RESET}{DIM}({s.build_file}){RESET}" for s in specs
+        )
+        print(f"  {DIM}Stages{RESET}         {chain}")
     else:
-        print(f"  ℹ  Using existing folder: {workspace_root.resolve()}")
+        print(f"  {DIM}Stages{RESET}         {DIM}(none created){RESET}")
+    print()
 
-    # ── Step 2: pipeline (lips root) ─────────────────────────────────────────
-    section("Step 2 / 5 — Pipeline name")
-    pipeline_name = prompt("Pipeline name")
-    lips_root = workspace_root / pipeline_name
 
-    if lips_root.exists():
-        print(f"  ℹ  Pipeline folder already exists: {lips_root.resolve()}")
+# ── main ──────────────────────────────────────────────────────────────────────
+
+def create(pipeline_path: str):
+    banner()
+    TOTAL_STEPS = 4
+
+    lips_root = Path(pipeline_path).expanduser().resolve()
+    pipeline_exists = lips_root.exists()
+    info(f"Pipeline path: {BOLD}{lips_root}{RESET}")
+
+    if pipeline_exists:
+        info(f"Pipeline already exists: {lips_root.resolve()}")
     else:
         lips_root.mkdir(parents=True)
-        print(f"  ✓ Created lips root: {lips_root.resolve()}")
+        ok(f"Created pipeline root: {lips_root.resolve()}")
 
-    # ── Step 3 & 4: LLM provider, model, tokens, temperature ─────────────────
-    api_config_path = lips_root / "api-config.json"
-    if api_config_path.exists():
-        print(f"\n  ℹ  api-config.json already exists — skipping LLM configuration.")
+    # ── Steps 1–3: config + API key (skip entirely for existing pipelines) ────
+    config_path = lips_root / "config.json"
+    env_path    = lips_root / ".env"
+
+    if pipeline_exists:
+        info("Existing pipeline — skipping config and API key setup.")
     else:
-        section("Step 3 / 5 — LLM provider & model")
+        step(1, TOTAL_STEPS, "LLM provider & model")
         model = select_model()
 
-        section("Step 4 / 5 — Generation parameters")
+        step(2, TOTAL_STEPS, "Generation parameters")
         raw_tokens = prompt("Max tokens", default=str(DEFAULT_API_CONFIG["max_tokens"]))
         try:
             max_tokens = int(raw_tokens)
         except ValueError:
-            print("  ✗ Invalid number — using default.")
+            warn("Invalid number — using default.")
             max_tokens = DEFAULT_API_CONFIG["max_tokens"]
 
         raw_temp = prompt("Temperature", default=str(DEFAULT_API_CONFIG["temperature"]))
         try:
             temperature = float(raw_temp)
         except ValueError:
-            print("  ✗ Invalid number — using default.")
+            warn("Invalid number — using default.")
             temperature = DEFAULT_API_CONFIG["temperature"]
 
-        api_config = {"model": model, "max_tokens": max_tokens, "temperature": temperature}
-        api_config = {
-            "generate": api_config,
-            "api_var": "API_KEY"
+        # Derive api_var from model string: "mistral/..." → "MISTRAL_API_KEY"
+        provider_prefix = model.split("/")[0].upper()
+        api_var = f"{provider_prefix}_API_KEY"
+
+        config = {
+            "generate": {
+                "model": model,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            },
+            "api_var": api_var,
+            "messages": MESSAGES_BLOCK,
+            "format": FORMAT_BLOCK,
         }
-        api_config_path.write_text(json.dumps(api_config, indent=2) + "\n", encoding="utf-8")
-        print(f"\n  ✓ Saved api-config.json:\n    {json.dumps(api_config, indent=4)}")
+        config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+        ok(f"Saved config.json  {DIM}(api_var: {api_var}){RESET}")
 
-    # ── Step 5: API key → .env ────────────────────────────────────────────────
-    env_path = lips_root / ".env"
-    if env_path.exists():
-        print(f"\n  ℹ  .env already exists — skipping API key setup.")
-    else:
-        section("Step 5 / 5 — API key")
-        api_key = prompt("API key (will be stored in .env)")
-        env_path.write_text(f"API_KEY={api_key}\n", encoding="utf-8")
-        print(f"  ✓ Saved .env")
+        step(3, TOTAL_STEPS, "API key")
+        if env_path.exists():
+            info(".env already exists — skipping.")
+        else:
+            api_key = _input(f"  {CYAN}?{RESET} API key {DIM}(blank to skip){RESET}: ")
+            env_path.write_text(f"{api_var}={api_key}\n", encoding="utf-8")
+            if api_key:
+                ok("Saved .env")
+            else:
+                ok(f"Saved .env  {DIM}(empty — fill in {api_var} later){RESET}")
 
-    # ── Stage loop ────────────────────────────────────────────────────────────
-    section("Stage creation  (enter stage names one by one; blank = done)")
-    stages: list[str] = []
-    previous: str | None = None
+    # ── Collect all stage specs (no disk writes yet) ──────────────────────────
+    specs = collect_stages(lips_root)
 
-    while True:
-        name = create_stage(lips_root, previous_stage_name=previous)
-        if name is None:
-            break
-        if name not in stages:
-            stages.append(name)
-            previous = name
+    # ── Materialise everything at once ────────────────────────────────────────
+    materialise_stages(lips_root, specs)
 
-    # ── Summary ───────────────────────────────────────────────────────────────
-    print("\n╔══════════════════════════════════════╗")
-    print(  "║             Done!                    ║")
-    print(  "╚══════════════════════════════════════╝")
-    print(f"  Pipeline root : {lips_root.resolve()}")
-    if stages:
-        print(f"  Stages        : {' → '.join(stages)}")
-    else:
-        print("  Stages        : (none created)")
-    print()
+    print_summary(lips_root, specs)

@@ -99,17 +99,22 @@ class Stage:
             check=True,
         )
 
-    def resolve(self, text, root, extra_env={}):
+    def resolve(self, text, root, base_env={}):
         text, env = env_from_script(text, self)
         text, source_ignore, target_ignore = ignore_from_script(text)
-        text = resolve_env(text, extra_env)
         text = resolve_env(text, env)
+        text = resolve_env(text, base_env)
         text = resolve_links(text, root)
         return text, env, source_ignore, target_ignore
     
     def build_md(self, md_text, messages, format_prompt, api_key, generate_config):
         
-        build_prompt, env, _, _ = self.resolve(md_text, self.root / 'build')
+        build_prompt, env, _, _ = self.resolve(
+            md_text, 
+            self.root / 'build',
+            {
+                'SOURCE': self.name
+            })
 
         target = self.pipeline.stages[env['TARGET']]
         

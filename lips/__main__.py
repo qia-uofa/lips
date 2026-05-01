@@ -15,11 +15,12 @@ def parse_args():
     build.add_argument('stage', help='Path to source stage')
     build.add_argument('--config', '-a', default='config.json', help='')
 
-    build = subparsers.add_parser('purge', help='')
-    build.add_argument('--pipeline', '-p', action='store_true', help='')
-    build.add_argument('dir', help='')
+    purge = subparsers.add_parser('purge', help='')
+    purge.add_argument('--pipeline', '-p', action='store_true', help='')
+    purge.add_argument('dir', help='')
 
-    subparsers.add_parser('create', help='Create an empty pipeline.')
+    create = subparsers.add_parser('create', help='Create an empty pipeline.')
+    create.add_argument('pipeline', default='./', help='')
 
     args = parser.parse_args()
     return args
@@ -29,9 +30,9 @@ def main():
     args = parse_args()
 
     if args.command == 'build':
-        with open(args.api_config) as f:
-            api_config = json.load(f)
-        api_key = os.getenv(api_config['api_var'])
+        with open(args.config) as f:
+            config = json.load(f)
+        api_key = os.getenv(config['api_var'])
 
         path = Path(args.stage).resolve()
 
@@ -51,7 +52,7 @@ def main():
                             raise FileNotFoundError(
                                 f"No script found for {args.script!r} in {build_dir}"
                             )
-                    stage.build(script, api_config['messages'], api_config['format'],api_key, api_config['generate'])
+                    stage.build(script, config['messages'], config['format'],api_key, config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()
@@ -70,7 +71,7 @@ def main():
                     stage.purge()
 
     elif args.command == 'create':
-        create()
+        create(args.pipeline)
 
     else:
         print("No command specified. Use --help for usage.")

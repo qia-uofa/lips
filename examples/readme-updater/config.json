@@ -6,5 +6,45 @@
         "timeout": 1200
     },
 
-    "api_var": "MISTRAL_API_KEY"
+    "api_var": "MISTRAL_API_KEY",
+
+    "messages":[
+        {
+            "role": "user",
+            "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)"
+        },
+        {
+            "role": "assistant",
+            "content": "I see. This is the current state of the input repo. I will use it as the source material to generate or update the output repo."
+        },
+        {
+            "role": "user",
+            "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)"
+        },
+        {
+            "role": "assistant",
+            "content": "I see. This is the current state of the output repo. I will use input repo as the source material to generate or update it."
+        },
+        {
+            "role": "user",
+            "content": "<env:BUILD_PROMPT>"
+        },
+        {
+            "role": "assistant",
+            "content": "I see. This is the main instruction for generating/updating the repo of the target repo."
+        },
+        {
+            "role": "user",
+            "content": "<env:FORMAT_PROMPT>"
+        },
+        {
+            "role": "assistant",
+            "content": "I see. This is the output format for generating/updating the repo of <target.name>."
+        },
+        {
+            "role": "user",
+            "content": "Start."
+        }
+    ],
+    "format": "Generate only the files that need to be created or updated. Use the following XML format with absolute paths:\n\n<file path=\"./file-1.txt\">\nfile content here\n...\n</file>\n\n<file path=\"./file-2.json\">\n{\n    \"key1\": \"value1\",\n    \"key2\": \"value2\"\n}\n</file>\n\nRules:\n- Start by analyzing and breaking down the problem before doing anything else.\n- Before generating each file, write down your reasoning through the logic and its impact on the overall repository structure.\n- Every file tag must contain the complete file contents — no partial files, no placeholders.\n- Use relative paths for all files, beginning with \"./\", which is the \"<masked-path-to-output-repo>\". \n- Only include files that are new or modified.\n- If an image file needs to be generated, generate a prompt file with the extension \".prompt.md\". For example, if 'icon.png' needs to be generated, instead, generate 'icon.png.prompt.md', which includes a elaborate prompt for further generation of the image. \n- Respect my last prompt message, only generate or update files specofied by it. \n- The output files might be partially generated already. In that case, only generate the missing files. \n- If the output files already meet the generation standard, opt out and don't generate anything. \n\n- You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:\n<file path=\"./deleted-file.ext\"></file>\n\n- When overwriting, remember to mirror the exact path of the ovverwriten file, but replace the masked path with \"./\". For example, overwrite <file path=\"<masked-path-to-output-repo>/to-be-overwritten-file.ext\">...</file> with <file path=\"./to-be-overwritten-file.ext\">...</file>"
 }
