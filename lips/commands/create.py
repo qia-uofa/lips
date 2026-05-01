@@ -186,6 +186,7 @@ def select_model() -> str:
 class StageSpec:
     name: str
     build_file: str   # e.g. "compile.md" or "build.sh"
+    is_final: bool = False
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -203,10 +204,11 @@ def _stem_exists_on_disk(lips_root: Path, stage_name: str, stem: str) -> bool:
 def collect_stages(lips_root: Path) -> list[StageSpec]:
     """
     Prompt stage name then build file alternately.
+    '/' as build file marks the stage as final and ends collection.
     Nothing is written to disk here.
     """
     section("Stage collection")
-    info("Enter stage names one by one.  Leave name blank to finish.")
+    info(f"Enter stage names one by one.  Leave name blank to finish.  Enter {BOLD}/{RESET} as build file to mark a stage as final.")
 
     specs: list[StageSpec] = []
 
@@ -216,65 +218,81 @@ def collect_stages(lips_root: Path) -> list[StageSpec]:
         if not stage_name:
             break
 
-        build_file = _ask_build_file(lips_root, stage_name, is_last=False)
+        build_file, is_final = _ask_build_file(lips_root, stage_name, queue=specs)
         if build_file is None:
             warn(f"Skipping stage '{stage_name}' — resolve the conflict and re-run.")
             continue
 
-        specs.append(StageSpec(name=stage_name, build_file=build_file))
-        ok(f"Queued  {BOLD}{stage_name}{RESET}  →  build/{build_file}")
+        specs.append(StageSpec(name=stage_name, build_file=build_file, is_final=is_final))
+        ok(f"Queued  {BOLD}{stage_name}{RESET}  →  build/{build_file}" + (f"  {YELLOW}[final]{RESET}" if is_final else ""))
 
-    # Fix the last stage: if it was assigned the intermediate default, swap to
-    # the final default (only when the user accepted the default, i.e. the value
-    # equals DEFAULT_BUILD_FILE and DEFAULT_BUILD_FILE != DEFAULT_BUILD_FILE_LAST).
-    if specs and specs[-1].build_file == DEFAULT_BUILD_FILE:
+        if is_final:
+            break
+
+    # If the last stage was added normally (not via '/'), swap compile.md → identity.md
+    if specs and not specs[-1].is_final and specs[-1].build_file == DEFAULT_BUILD_FILE:
         old = specs[-1].build_file
-        specs[-1] = StageSpec(name=specs[-1].name, build_file=DEFAULT_BUILD_FILE_LAST)
-        info(
-            f"Last stage build file changed from '{old}' to "
-            f"'{DEFAULT_BUILD_FILE_LAST}'"
-        )
+        specs[-1] = StageSpec(name=specs[-1].name, build_file=DEFAULT_BUILD_FILE_LAST, is_final=False)
+        info(f"Last stage build file changed from '{old}' to '{DEFAULT_BUILD_FILE_LAST}'")
 
     return specs
 
 
-def _ask_build_file(lips_root: Path, stage_name: str, *, is_last: bool = False) -> str | None:
+def _ask_build_file(
+    lips_root: Path,
+    stage_name: str,
+    queue: list[StageSpec],
+) -> tuple[str | None, bool]:
     """
-    Ask for a build file name.
+    Ask for a build file name.  Returns (filename, is_final).
 
-    - Default is "identity.md" for the last stage, "compile.md" for all others.
-    - If user presses Enter (accepts default) AND the default stem already exists
-      on disk → warn and return None (caller skips this stage).
-    - If user types a name whose stem already exists on disk → re-prompt.
-    - Otherwise return the chosen filename.
+    - Default is "compile.md".
+    - '/' → use DEFAULT_BUILD_FILE_LAST ("identity.md") and mark as final.
+    - Conflict check covers both files on disk AND stems already in the queue
+      for the same stage name.
+    - If user accepts default and default stem is already taken → return (None, False).
     """
-    default      = DEFAULT_BUILD_FILE_LAST if is_last else DEFAULT_BUILD_FILE
+    default      = DEFAULT_BUILD_FILE
     default_stem = Path(default).stem
 
+    # Stems already queued for this stage name
+    queued_stems = {Path(s.build_file).stem for s in queue if s.name == stage_name}
+
     while True:
-        raw = _input(f"  {DIM}↵{RESET} Build file {DIM}[{default}]{RESET}: ")
+        raw = _input(f"  {DIM}↵{RESET} Build file {DIM}[{default}]  / = final{RESET}: ")
+
+        # '/' → final stage with identity.md default
+        if raw == "/":
+            final_file = DEFAULT_BUILD_FILE_LAST
+            final_stem = Path(final_file).stem
+            if final_stem in queued_stems or _stem_exists_on_disk(lips_root, stage_name, final_stem):
+                warn(
+                    f"Stem '{final_stem}' already exists for stage '{stage_name}'.  "
+                    f"Enter a custom build file name instead of '/'."
+                )
+                continue
+            return final_file, True
 
         if not raw:
             # Accepted default
-            if _stem_exists_on_disk(lips_root, stage_name, default_stem):
+            if default_stem in queued_stems or _stem_exists_on_disk(lips_root, stage_name, default_stem):
                 warn(
-                    f"Default build file stem '{default_stem}' already exists in "
-                    f"'{stage_name}/build/'.  Please use a different stage name or "
-                    f"enter a custom build file."
+                    f"Build file stem '{default_stem}' already exists for stage '{stage_name}'.  "
+                    f"Please use a different stage name or enter a custom build file."
                 )
-                return None  # signal: skip this stage entirely
-            return default
+                return None, False
+            return default, False
 
-        # User typed a custom name — check stem for conflicts
+        # Custom name — check stem against queue and disk
         chosen_stem = Path(raw).stem
-        if _stem_exists_on_disk(lips_root, stage_name, chosen_stem):
+        if chosen_stem in queued_stems or _stem_exists_on_disk(lips_root, stage_name, chosen_stem):
             warn(
-                f"A file with stem '{chosen_stem}' already exists in "
-                f"'{stage_name}/build/'.  Enter a different build file name."
+                f"Build file stem '{chosen_stem}' already exists for stage '{stage_name}'.  "
+                f"Enter a different build file name."
             )
-            continue  # re-prompt only the build file question
+            continue
 
-        return raw
+        return raw, False
 
 
 # ── build file content ────────────────────────────────────────────────────────
@@ -297,6 +315,44 @@ def _build_file_content(build_file: str, next_stage: str | None) -> str:
         return f"{BUILD_PROMPT_FINAL}\n"
 
 
+# ── workspace lips-config.json ───────────────────────────────────────────────
+
+def touch_lips_config(lips_root: Path, specs: list[StageSpec]):
+    """
+    Create or update <workspace>/lips-config.json with the pipeline graph.
+    Graph shape:
+      { "pipelines": { "<pipeline>": { "graph": { "<stage>": { "<buildfile>": "<next_stage|null>" } } } } }
+    Merges into any existing content; never clobbers unrelated keys.
+    """
+    workspace = lips_root.parent
+    config_path = workspace / "lips-config.json"
+
+    # Load existing or start fresh
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            warn("lips-config.json is malformed — overwriting.")
+            data = {}
+    else:
+        data = {}
+
+    # Build graph for this pipeline
+    graph = {}
+    for i, spec in enumerate(specs):
+        is_final = spec.is_final or (i == len(specs) - 1)
+        next_stage = specs[i + 1].name if not is_final and i + 1 < len(specs) else spec.name
+        graph[spec.name] = {spec.build_file: next_stage}
+
+    # Merge
+    pipelines = data.setdefault("pipelines", {})
+    pipeline_name = lips_root.name
+    pipelines.setdefault(pipeline_name, {})["graph"] = graph
+
+    config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    ok(f"Updated  {BOLD}{config_path}{RESET}")
+
+
 # ── materialise all stages at once ───────────────────────────────────────────
 
 def materialise_stages(lips_root: Path, specs: list[StageSpec]):
@@ -313,7 +369,8 @@ def materialise_stages(lips_root: Path, specs: list[StageSpec]):
     section("Creating pipeline structure")
 
     for i, spec in enumerate(specs):
-        next_stage = specs[i + 1].name if i + 1 < len(specs) else None
+        is_final = spec.is_final or (i == len(specs) - 1)
+        next_stage = specs[i + 1].name if not is_final and i + 1 < len(specs) else None
 
         stage_dir = lips_root / spec.name
         build_dir = stage_dir / "build"
@@ -334,13 +391,15 @@ def materialise_stages(lips_root: Path, specs: list[StageSpec]):
         build_path.write_text(content, encoding="utf-8")
         ok(f"Wrote  {BOLD}{spec.name}/build/{spec.build_file}{RESET}")
 
+    touch_lips_config(lips_root, specs)
+
 
 # ── summary ───────────────────────────────────────────────────────────────────
 
 def print_summary(lips_root: Path, specs: list[StageSpec]):
     print()
     print(f"  {BOLD}{GREEN}┌─────────────────────────────────────────────┐{RESET}")
-    print(f"  {BOLD}{GREEN}│{RESET}   {BOLD}{WHITE}All done!{RESET}                                  {BOLD}{GREEN}│{RESET}")
+    print(f"  {BOLD}{GREEN}│{RESET}   {BOLD}{WHITE}All done!{RESET}                                 {BOLD}{GREEN}│{RESET}")
     print(f"  {BOLD}{GREEN}└─────────────────────────────────────────────┘{RESET}")
     print()
     print(f"  {DIM}Pipeline root{RESET}  {BOLD}{lips_root.resolve()}{RESET}")
