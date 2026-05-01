@@ -13,7 +13,7 @@ def parse_args():
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
     build.add_argument('script', nargs='?', default='compile', help='Use $source$/build/$script$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
-    build.add_argument('--api-config', '-a', default='api-config.json', help='')
+    build.add_argument('--config', '-a', default='config.json', help='')
 
     build = subparsers.add_parser('purge', help='')
     build.add_argument('--pipeline', '-p', action='store_true', help='')
@@ -51,7 +51,7 @@ def main():
                             raise FileNotFoundError(
                                 f"No script found for {args.script!r} in {build_dir}"
                             )
-                    stage.build(script, api_key, api_config['generate'])
+                    stage.build(script, api_config['messages'], api_config['format'],api_key, api_config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()

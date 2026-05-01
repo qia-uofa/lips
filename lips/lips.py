@@ -8,7 +8,7 @@ import subprocess
 
 from .utils.message_from_files import message_from_files
 from .utils.parse_scripts import env_from_script, ignore_from_script
-from .utils.resolve_md import resolve_links
+from .utils.resolve_md import resolve_links, resolve_env
 from .utils.parse_files import parse_files
 from .utils.prompts import output_format_prompt
 
@@ -64,12 +64,12 @@ class Stage:
         if out_path.exists() and out_path.is_dir():
             shutil.rmtree(out_path)
    
-    def build(self, script, api_key=None, generate_config=None):
+    def build(self, script, messages, format_prompt, api_key=None, generate_config=None):
         suffix = script.suffix
         with open(self.root / f'build/{script}', 'r', encoding='utf-8') as f:
             text = f.read()
         if suffix == '.md':
-            self.build_md(text, api_key, generate_config)
+            self.build_md(text, messages, format_prompt, api_key, generate_config)
         elif suffix == '.py':
             self.build_py(text)
         elif suffix == '.sh':
@@ -99,60 +99,33 @@ class Stage:
             check=True,
         )
 
-     
-    def build_md(self, md_text, api_key, generate_config):
+    def resolve(self, text, root, extra_env={}):
+        text, env = env_from_script(text, self)
+        text, source_ignore, target_ignore = ignore_from_script(text)
+        text = resolve_env(text, extra_env)
+        text = resolve_env(text, env)
+        text = resolve_links(text, root)
+        return text, env, source_ignore, target_ignore
+    
+    def build_md(self, md_text, messages, format_prompt, api_key, generate_config):
         
-        prompt = md_text
-        prompt = resolve_links(prompt, self)
-        
-        prompt, env = env_from_script(prompt, self)
-        prompt, source_ignore, target_ignore = ignore_from_script(prompt)
+        build_prompt, env, _, _ = self.resolve(md_text, self.root / 'build')
 
         target = self.pipeline.stages[env['TARGET']]
         
-        messages = []
-        
-        if target.name == self.name:
-            messages.append(self.repo_message(source_ignore, '<masked-path-to-input-repo>'))
-            messages.append({
-                'role': 'assistant',
-                'content': f'I see. This is the current state of "{self.name}". I will update it based on your further instructions.'
-            })
-        else:
-            messages.append(self.repo_message(source_ignore, '<masked-path-to-input-repo>'))
-            messages.append({
-                'role': 'assistant',
-                'content': f'I see. This is the current state of the input repo "{self.name}". I will use it as the source material to generate or update "{target.name}".'
-            })
-            messages.append(target.repo_message(target_ignore, '<masked-path-to-output-repo>'))
-            messages.append({
-                'role': 'assistant',
-                'content': f'I see. This is the current state of the output repo "{target.name}". I will use "{self.name}" as the source material to generate or update it.'
-            })
-
-        messages.append({
-            'role': 'user',
-            'content': prompt
-        })
-        messages.append({
-            'role': 'assistant',
-            'content': f'I see. This is the main instruction for generating/updating the repo of {target.name}.'
-        })
-
-        messages.append({
-            'role': 'user',
-            'content': output_format_prompt
-        })
-        
-        messages.append({
-            'role': 'assistant',
-            'content': f'I see. This is the output format for generating/updating the repo of {target.name}.'
-        })
-
-        messages.append({
-            'role': 'user',
-            'content': 'Start.'
-        })
+        for message in messages:
+            content, env, _, _ = self.resolve(
+                message['content'], 
+                Path(''), 
+                {
+                    'BUILD_PROMPT': build_prompt,
+                    'FORMAT_PROMPT': format_prompt,
+                    'SOURCE_MASK': '<masked/path/to/input/repo>',
+                    'TARGET_MASK':  '<masked/path/to/output/repo>',
+                    'SOURCE_PATH': self.root / 'repo',
+                    'TARGET_PATH': target.root / 'repo',
+                })
+            message['content'] = content
 
         self.log_json('messages', messages)
 
