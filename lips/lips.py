@@ -10,7 +10,6 @@ from .utils.message_from_files import message_from_files
 from .utils.parse_scripts import env_from_script, ignore_from_script
 from .utils.resolve_md import resolve_links, resolve_env
 from .utils.parse_files import parse_files
-from .utils.prompts import output_format_prompt
 
 
 class Lips:
@@ -19,10 +18,11 @@ class Lips:
         self.pipelines = {}
         for root in self.workspace.iterdir():
             if root.is_dir():
-                self.pipelines[root.name] = Pipeline(root)
+                self.pipelines[root.name] = Pipeline(root, self)
 
 class Pipeline:
-    def __init__(self, root):
+    def __init__(self, root, lips):
+        self.lips = lips
         self.root = Path(root).resolve()
         self.stages = {}
         for stage_path in self.root.iterdir():
@@ -64,12 +64,12 @@ class Stage:
         if out_path.exists() and out_path.is_dir():
             shutil.rmtree(out_path)
    
-    def build(self, script, messages, format_prompt, api_key=None, generate_config=None):
+    def build(self, script, messages, api_key=None, generate_config=None):
         suffix = script.suffix
         with open(self.root / f'build/{script}', 'r', encoding='utf-8') as f:
             text = f.read()
         if suffix == '.md':
-            self.build_md(text, messages, format_prompt, api_key, generate_config)
+            self.build_md(text, messages, api_key, generate_config)
         elif suffix == '.py':
             self.build_py(text)
         elif suffix == '.sh':
@@ -107,7 +107,7 @@ class Stage:
         text = resolve_links(text, root)
         return text, env, source_ignore, target_ignore
     
-    def build_md(self, md_text, messages, format_prompt, api_key, generate_config):
+    def build_md(self, md_text, messages, api_key, generate_config):
         
         build_prompt, env, _, _ = self.resolve(
             md_text, 
@@ -123,8 +123,10 @@ class Stage:
                 message['content'], 
                 Path(''), 
                 {
+                    'LIPS_PATH': self.pipeline.lips.workspace,
+                    'PIPE_PATH': self.pipeline.root,
+                    'STAGE_PATH': self.root,
                     'BUILD_PROMPT': build_prompt,
-                    'FORMAT_PROMPT': format_prompt,
                     'SOURCE_MASK': '<masked/path/to/input/repo>',
                     'TARGET_MASK':  '<masked/path/to/output/repo>',
                     'SOURCE_PATH': self.root / 'repo',

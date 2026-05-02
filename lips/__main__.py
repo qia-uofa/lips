@@ -52,7 +52,7 @@ def main():
                             raise FileNotFoundError(
                                 f"No script found for {args.script!r} in {build_dir}"
                             )
-                    stage.build(script, config['messages'], config['format'],api_key, config['generate'])
+                    stage.build(script, config['messages'], api_key, config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()
