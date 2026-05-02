@@ -2,7 +2,10 @@
   "pipelines": {
     "python-project": {
       "graph": {
-        "spec": {
+        "concept": {
+          "compile.md": "specs"
+        },
+        "specs": {
           "compile.md": "target"
         },
         "target": {

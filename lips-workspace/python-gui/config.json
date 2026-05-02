@@ -1,0 +1,51 @@
+{
+  "generate": {
+    "model": "mistral/mistral-large-latest",
+    "max_tokens": 20000,
+    "temperature": 0.0,
+    "timeout": 1200
+  },
+  "api_var": "MISTRAL_API_KEY",
+  "messages": [
+    {
+      "role": "system",
+      "content": "[write:system.md](<env:LIPS_PATH>/system.md)"
+    },
+    {
+      "role": "user",
+      "content": "print <env:SOURCE_MASK>"
+    },
+    {
+      "role": "assistant",
+      "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)"
+    },
+    {
+      "role": "user",
+      "content": "print <env:TARGET_MASK>"
+    },
+    {
+      "role": "assistant",
+      "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)"
+    },
+    {
+      "role": "user",
+      "content": "print format.md"
+    },
+    {
+      "role": "assistant",
+      "content": "[write:./format.md](<env:LIPS_PATH>/format.md)"
+    },
+        {
+      "role": "user",
+      "content": "print build.md"
+    },
+    {
+      "role": "assistant",
+      "content": "<file path=\"build.md\">\n<env:BUILD_PROMPT>\n</file>"
+    },
+    {
+      "role": "user",
+      "content": "run --task build.md --output-format format.md"
+    }
+  ]
+}

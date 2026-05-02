@@ -9,7 +9,7 @@
   "messages": [
     {
       "role": "system",
-      "content": "You are a File Repository Assistant specializing in updating, transforming, and managing files. Your role is to help users organize, convert, restructure, and maintain their file repositories efficiently and accurately."
+      "content": "[write:system.md](<env:LIPS_PATH>/system.md)"
     },
     {
       "role": "user",
@@ -29,23 +29,23 @@
     },
     {
       "role": "user",
-      "content": "echo build_prompt"
-    },
-    {
-      "role": "assistant",
-      "content": "<env:BUILD_PROMPT>"
-    },
-    {
-      "role": "user",
-      "content": "echo format_prompt"
+      "content": "print format.md"
     },
     {
       "role": "assistant",
       "content": "[write:./format.md](<env:LIPS_PATH>/format.md)"
     },
+        {
+      "role": "user",
+      "content": "print build.md"
+    },
+    {
+      "role": "assistant",
+      "content": "<file path=\"build.md\">\n<env:BUILD_PROMPT>\n</file>"
+    },
     {
       "role": "user",
-      "content": "start"
+      "content": "run --task build.md --output-format format.md"
     }
   ]
 }
