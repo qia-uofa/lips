@@ -12,6 +12,7 @@ LIPS is a minimal Python framework for building **file-system pipelines driven b
 - [Directory Layout](#directory-layout)
 - [Configuration — `config.json` and `.env`](#configuration)
 - [CLI Reference](#cli-reference)
+- [Create Wizard Walkthrough](#create-wizard-walkthrough)
 - [Build Script Syntax](#build-script-syntax)
   - [env block](#env-block)
   - [sourceignore / targetignore blocks](#ignore-blocks)
@@ -82,22 +83,22 @@ pip install -e .
 ## Quick Start
 
 ```bash
-# 1. Scaffold a new pipeline
+# 1. Scaffold a new pipeline interactively
 lips create my-pipeline
 
-# 2. cd into it and fill in your API key
+# 2. cd into it — config.json and .env are already written
 cd my-pipeline
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
 
-# 3. Put your seed content into the first stage's repo
-echo "Build me a FastAPI CRUD app for managing todos." > 1-prompt/repo/prompt.md
+# 3. Put your seed content into the first stage
+echo "Your idea or input here." > seed/repo/input.md
 
 # 4. Build each stage in order
-lips build 1-prompt
-lips build 2-concept
-lips build 3-specs
-lips build 4-target
+lips build seed
+lips build draft
+lips build output
 ```
+
+Each `lips build <stage>` reads the build script in that stage's `build/` directory, sends the source and target repos plus the prompt to the LLM, and writes the generated files into the target stage's `repo/`. Edit any intermediate `repo/` by hand before running the next stage — LIPS will use whatever is on disk.
 
 ---
 
@@ -219,7 +220,109 @@ Calls `purge()` on every stage in the pipeline.
 
 ### `lips create <pipeline-path>`
 
-Interactive wizard to scaffold a new pipeline. If the pipeline directory does not exist, it is created along with `config.json` and `.env`. If it already exists, the config/API-key steps are skipped and only new stages are added.
+Interactive wizard to scaffold a new pipeline. If the pipeline directory does not exist, it creates it along with `config.json` and `.env`. If it already exists, the config and API-key steps are skipped and only new stages are added to the existing pipeline.
+
+See the full [Create Wizard Walkthrough](#create-wizard-walkthrough) below.
+
+---
+
+## Create Wizard Walkthrough
+
+`lips create <path>` is a fully interactive terminal wizard. It walks you through four steps in sequence, writing all files to disk at the end. Nothing is written until the final materialisation step, so you can abort at any point with `Ctrl+C` without leaving a partial state.
+
+### Step 1 — LLM provider & model
+
+The wizard presents a numbered provider menu:
+
+```
+  Available providers:
+    1.  Mistral
+    2.  OpenAI
+    3.  Anthropic
+    4.  Google
+    0.  Enter model string manually
+```
+
+Select a number to expand that provider's model list, or enter `0` to type any LiteLLM model string directly. The chosen model string is written to `config.json` and the provider prefix (e.g. `anthropic`) is used to derive the `api_var` name automatically (`ANTHROPIC_API_KEY`).
+
+### Step 2 — Generation parameters
+
+```
+  ? Max tokens [20000]:
+  ? Temperature [0]:
+```
+
+Both fields have defaults shown in brackets. Press Enter to accept. `max_tokens` must be a positive integer; `temperature` a float. Invalid input falls back to the default silently.
+
+### Step 3 — API key
+
+```
+  ? API key (blank to skip):
+```
+
+The key is written to `.env` as `<API_VAR>=<key>`. If `.env` already exists this step is skipped entirely. You can always fill in or update the key manually.
+
+### Step 4 — Stage collection
+
+This is the core of the wizard. You add stages one at a time by entering a name and then a build file name:
+
+```
+  + Stage name (blank = done): seed
+  ↵ Build file [compile.md]  / = final:
+  ✔  Queued  seed  →  build/compile.md
+
+  + Stage name (blank = done): draft
+  ↵ Build file [compile.md]  / = final:
+  ✔  Queued  draft  →  build/compile.md
+
+  + Stage name (blank = done): output
+  ↵ Build file [compile.md]  / = final: /
+  ✔  Queued  output  →  build/identity.md  [final]
+```
+
+**Stage name** — any directory name. Leave blank to finish collection.
+
+**Build file** — the `.md` (or `.py`/`.sh`) file that will be created inside `build/`. Defaults to `compile.md`. Press Enter to accept.
+
+**`/` as build file** — marks the stage as **final**. The wizard uses `identity.md` as the file name and stops prompting for more stages. A final stage's build script has no `TARGET` env block, so its `TARGET` defaults to itself (the stage updates its own `repo/`).
+
+**Automatic final-stage rename**: if you finish collection by leaving the stage name blank rather than entering `/`, the last stage's build file is automatically renamed from `compile.md` to `identity.md`. This is purely a naming convention to signal that the last stage is terminal.
+
+**Conflict detection**: the wizard checks both files already on disk and build files already queued in the current session. If a stem collision is detected (e.g. two stages with the same name trying to use the same `compile.md`), you are prompted to choose a different name. The stage is skipped (not queued) if you accept the default despite a conflict.
+
+### What gets written
+
+After stage collection, LIPS materialises everything at once:
+
+| File | Contents |
+|---|---|
+| `<pipeline>/config.json` | Model, parameters, full `messages` template, `format` prompt |
+| `<pipeline>/.env` | `<API_VAR>=<key>` |
+| `<pipeline>/<stage>/build/<file>.md` | Pre-filled build script with `env` block and one-liner prompt |
+| `<pipeline>/<stage>/repo/` | Empty directory (ready for your seed content) |
+| `<workspace>/lips-config.json` | Pipeline graph record (documentation only; not read at runtime) |
+
+**Intermediate stage build files** are pre-filled with:
+
+````markdown
+```env
+TARGET=<next-stage>
+```
+
+Your task is to transform the repository <env:SOURCE> to <env:TARGET> by generating files.
+````
+
+**Final stage build files** (`identity.md`) are pre-filled with:
+
+```markdown
+Your task is to update the repository <env:SOURCE> by generating files needed to be updated.
+```
+
+You replace these one-liner prompts with your actual instructions before running `lips build`.
+
+### Adding stages to an existing pipeline
+
+If the target directory already exists, `lips create <path>` skips steps 1–3 entirely and goes straight to stage collection. Only new stages are created; existing stage directories are left untouched (only a new build file is added to their `build/` subdirectory if you queue them again with a different build file name).
 
 ---
 
@@ -231,7 +334,7 @@ Build scripts are files inside a stage's `build/` directory. `.md` scripts are t
 
 ````markdown
 ```env
-TARGET=2-concept
+TARGET=next-stage
 ```
 ````
 
@@ -278,8 +381,8 @@ Both blocks are stripped from the prompt before it is sent to the LLM.
 ### write links
 
 ```markdown
-[write:./leitfaden.pdf](./assets/Leitfaden.pdf)
-[write:./reference-docs](./assets/docs/)
+[write:./style-guide.pdf](./assets/style-guide.pdf)
+[write:./reference](./assets/reference-docs/)
 ```
 
 A Markdown link with the label prefix `write:`. Resolved at build time by `resolve_links()`.
@@ -295,8 +398,7 @@ This is the primary mechanism for injecting reference material (style guides, sc
 ### env: variable substitution
 
 ```markdown
-Your task is to transform <env:SOURCE> into <env:TARGET>.
-See the source at <env:SOURCE_PATH>.
+Transform the contents of <env:SOURCE> and write the result to <env:TARGET>.
 ```
 
 `<env:KEY>` tokens are replaced with the corresponding value from the resolved environment at build time. This substitution is applied to **both the build script text and every message in the `messages` array**.
@@ -549,7 +651,7 @@ The interactive pipeline creation wizard. Entirely self-contained; no dependency
 |---|---|---|
 | 1 | Mistral | `mistral-large-latest`, `mistral-medium-latest`, `mistral-small-latest` |
 | 2 | OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
-| 3 | Anthropic | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
+| 3 | Anthropic | `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
 | 4 | Google | `gemini-2.0-flash`, `gemini-2.0-pro` |
 
 ---
