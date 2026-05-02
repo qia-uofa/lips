@@ -13,10 +13,10 @@ from .utils.parse_files import parse_files
 
 
 class Lips:
-    def __init__(self, workspace):
-        self.workspace = Path(workspace).resolve()
+    def __init__(self, root):
+        self.root = Path(root).resolve()
         self.pipelines = {}
-        for root in self.workspace.iterdir():
+        for root in self.root.iterdir():
             if root.is_dir():
                 self.pipelines[root.name] = Pipeline(root, self)
 
@@ -123,7 +123,7 @@ class Stage:
                 message['content'], 
                 Path(''), 
                 {
-                    'LIPS_PATH': self.pipeline.lips.workspace,
+                    'LIPS_PATH': self.pipeline.lips.root,
                     'PIPE_PATH': self.pipeline.root,
                     'STAGE_PATH': self.root,
                     'BUILD_PROMPT': build_prompt,

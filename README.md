@@ -10,7 +10,7 @@ LIPS is a minimal Python framework for building **file-system pipelines driven b
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Directory Layout](#directory-layout)
-- [Configuration — `config.json` and `.env`](#configuration)
+- [Configuration — `config.json`, `format.md`, and `.env`](#configuration)
 - [CLI Reference](#cli-reference)
 - [Create Wizard Walkthrough](#create-wizard-walkthrough)
 - [Build Script Syntax](#build-script-syntax)
@@ -84,18 +84,19 @@ pip install -e .
 
 ```bash
 # 1. Scaffold a new pipeline interactively
-lips create my-pipeline
+#    Pass the pipeline path — lips creates config files in its parent directory
+lips create workspace/my-pipeline
 
-# 2. cd into it — config.json and .env are already written
-cd my-pipeline
+# 2. cd into the pipeline directory
+cd workspace/my-pipeline
 
 # 3. Put your seed content into the first stage
-echo "Your idea or input here." > seed/repo/input.md
+echo "Your idea or input here." > 1-seed/repo/input.md
 
 # 4. Build each stage in order
-lips build seed
-lips build draft
-lips build output
+lips build 1-seed
+lips build 2-draft
+lips build 3-output
 ```
 
 Each `lips build <stage>` reads the build script in that stage's `build/` directory, sends the source and target repos plus the prompt to the LLM, and writes the generated files into the target stage's `repo/`. Edit any intermediate `repo/` by hand before running the next stage — LIPS will use whatever is on disk.
@@ -105,33 +106,37 @@ Each `lips build <stage>` reads the build script in that stage's `build/` direct
 ## Directory Layout
 
 ```
-my-pipeline/                   ← pipeline root
-├── config.json                ← LLM settings, message template, format prompt
-├── .env                       ← API key(s)
+workspace/
+├── config.json                ← workspace-level pipeline graph (written by lips create)
 │
-├── 1-prompt/                  ← stage
-│   ├── build/
-│   │   └── compile.md         ← build script (prompt instructions)
-│   ├── repo/                  ← working files (human-authored seed)
-│   └── out/                   ← auto-created; logged runs
-│       ├── messages_YYYYMMDD_HHMMSS.json
-│       ├── response_YYYYMMDD_HHMMSS.md
-│       └── files_dict_YYYYMMDD_HHMMSS.json
-│
-├── 2-concept/
-│   ├── build/
-│   │   └── compile.md
-│   ├── repo/                  ← LLM-generated output from stage 1
-│   └── out/
-│
-└── 3-specs/
-    ├── build/
-    │   └── compile.md
-    ├── repo/
-    └── out/
+└── my-pipeline/               ← pipeline root (lips_root — parent of the path given to lips create)
+    ├── config.json            ← LLM settings and message template
+    ├── format.md              ← output format instructions (referenced by the message template)
+    ├── .env                   ← API key(s)
+    │
+    ├── 1-prompt/              ← stage
+    │   ├── build/
+    │   │   └── compile.md     ← build script (prompt instructions)
+    │   ├── repo/              ← working files (human-authored seed)
+    │   └── out/               ← auto-created; logged runs
+    │       ├── messages_YYYYMMDD_HHMMSS.json
+    │       ├── response_YYYYMMDD_HHMMSS.md
+    │       └── files_dict_YYYYMMDD_HHMMSS.json
+    │
+    ├── 2-concept/
+    │   ├── build/
+    │   │   └── compile.md
+    │   ├── repo/              ← LLM-generated output from stage 1
+    │   └── out/
+    │
+    └── 3-specs/
+        ├── build/
+        │   └── compile.md
+        ├── repo/
+        └── out/
 ```
 
-A pipeline can have any number of stages with any names. The stage ordering is entirely determined by the `TARGET=` variable in each build script — there is no global ordering file required. A `lips-config.json` is written by `lips create` at the workspace level to record the graph, but LIPS does not read it at runtime.
+A pipeline can have any number of stages with any names. The stage ordering is entirely determined by the `TARGET=` variable in each build script — there is no global ordering file required. A `config.json` is written by `lips create` at the workspace level to record the pipeline graph, but LIPS does not read it at runtime.
 
 ---
 
@@ -139,7 +144,7 @@ A pipeline can have any number of stages with any names. The stage ordering is e
 
 ### `config.json`
 
-Created automatically by `lips create`. Must be present in the **current working directory** when you run `lips build` (or pass `--config <path>`).
+Created automatically by `lips create` inside the pipeline directory. Must be present in the **current working directory** when you run `lips build` (or pass `--config <path>`).
 
 ```json
 {
@@ -151,17 +156,20 @@ Created automatically by `lips create`. Must be present in the **current working
     },
     "api_var": "ANTHROPIC_API_KEY",
     "messages": [
-        { "role": "user",      "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)" },
-        { "role": "assistant", "content": "I see. This is the current state of the input repo. I will use it as the source material to generate or update the output repo." },
-        { "role": "user",      "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)" },
-        { "role": "assistant", "content": "I see. This is the current state of the output repo. I will use input repo as the source material to generate or update it." },
-        { "role": "user",      "content": "<env:BUILD_PROMPT>" },
-        { "role": "assistant", "content": "I see. This is the main instruction for generating/updating the repo of the target repo." },
-        { "role": "user",      "content": "<env:FORMAT_PROMPT>" },
-        { "role": "assistant", "content": "I see. This is the output format for generating/updating the repo of <target.name>." },
-        { "role": "user",      "content": "Start." }
-    ],
-    "format": "Generate only the files that need to be created or updated..."
+        {
+            "role": "system",
+            "content": "You are a File Repository Assistant specializing in updating, transforming, and managing files. Your role is to help users organize, convert, restructure, and maintain their file repositories efficiently and accurately."
+        },
+        { "role": "user",      "content": "print <env:SOURCE_MASK>" },
+        { "role": "assistant", "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)" },
+        { "role": "user",      "content": "print <env:TARGET_MASK>" },
+        { "role": "assistant", "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)" },
+        { "role": "user",      "content": "echo build_prompt" },
+        { "role": "assistant", "content": "<env:BUILD_PROMPT>" },
+        { "role": "user",      "content": "echo format_prompt" },
+        { "role": "assistant", "content": "[write:./format.md](<env:LIPS_PATH>/format.md)" },
+        { "role": "user",      "content": "start" }
+    ]
 }
 ```
 
@@ -173,9 +181,12 @@ Created automatically by `lips create`. Must be present in the **current working
 | `generate.timeout` | int | Request timeout in seconds |
 | `api_var` | string | Name of the environment variable holding the API key |
 | `messages` | array | Conversation template. Supports `[write:...]` links and `<env:KEY>` substitution. Resolved at build time. |
-| `format` | string | The output format instructions injected as `<env:FORMAT_PROMPT>` |
 
 All keys inside `generate` are passed **verbatim** as kwargs to `litellm.completion()`, so any parameter LiteLLM supports (e.g. `top_p`, `stop`) can be added here.
+
+### `format.md`
+
+Created automatically alongside `config.json` in the pipeline directory. Contains the output format rules shown to the LLM. The default message template loads it via `[write:./format.md](<env:LIPS_PATH>/format.md)` in the `echo format_prompt` assistant turn. You can edit `format.md` freely to customise the output contract for your pipeline without touching `config.json`.
 
 ### `.env`
 
@@ -220,7 +231,7 @@ Calls `purge()` on every stage in the pipeline.
 
 ### `lips create <pipeline-path>`
 
-Interactive wizard to scaffold a new pipeline. If the pipeline directory does not exist, it creates it along with `config.json` and `.env`. If it already exists, the config and API-key steps are skipped and only new stages are added to the existing pipeline.
+Interactive wizard to scaffold a new pipeline. `lips_root` is resolved as the **parent** of the given path — so `lips create workspace/my-pipeline` initialises the pipeline inside `workspace/my-pipeline/`. If the pipeline directory does not exist, it creates it along with `config.json`, `format.md`, and `.env`. If it already exists, the config and API-key steps are skipped and only new stages are added.
 
 See the full [Create Wizard Walkthrough](#create-wizard-walkthrough) below.
 
@@ -296,11 +307,12 @@ After stage collection, LIPS materialises everything at once:
 
 | File | Contents |
 |---|---|
-| `<pipeline>/config.json` | Model, parameters, full `messages` template, `format` prompt |
+| `<pipeline>/config.json` | Model, parameters, and full `messages` template |
+| `<pipeline>/format.md` | Output format rules (loaded by the message template at build time) |
 | `<pipeline>/.env` | `<API_VAR>=<key>` |
 | `<pipeline>/<stage>/build/<file>.md` | Pre-filled build script with `env` block and one-liner prompt |
 | `<pipeline>/<stage>/repo/` | Empty directory (ready for your seed content) |
-| `<workspace>/lips-config.json` | Pipeline graph record (documentation only; not read at runtime) |
+| `<workspace>/config.json` | Pipeline graph record (documentation only; not read at runtime) |
 
 **Intermediate stage build files** are pre-filled with:
 
@@ -407,15 +419,23 @@ Transform the contents of <env:SOURCE> and write the result to <env:TARGET>.
 
 | Variable | Value |
 |---|---|
-| `SOURCE` | Name of the current (source) stage |
+| `LIPS_PATH` | Absolute path to the workspace directory (`pipeline.lips.workspace`) |
+| `PIPE_PATH` | Absolute path to the pipeline directory |
+| `STAGE_PATH` | Absolute path to the current (source) stage directory |
 | `SOURCE_PATH` | Absolute path to the source stage's `repo/` |
 | `SOURCE_MASK` | The string `<masked/path/to/input/repo>` |
 | `TARGET_PATH` | Absolute path to the target stage's `repo/` |
 | `TARGET_MASK` | The string `<masked/path/to/output/repo>` |
 | `BUILD_PROMPT` | The fully resolved build script text (after env/ignore stripping and link resolution) |
-| `FORMAT_PROMPT` | The `format` string from `config.json` |
 
-Any additional keys defined in the `env` block of the build script are also available as `<env:KEY>`.
+**Variables available only within the build script itself** (not the `messages` template):
+
+| Variable | Value |
+|---|---|
+| `SOURCE` | Name of the current (source) stage |
+| `TARGET` | Name of the target stage (from the `env` block, defaults to the source stage name) |
+
+Any additional keys defined in the `env` block of the build script are also available as `<env:KEY>` within the build script text.
 
 ---
 
@@ -449,20 +469,21 @@ The result is a standard `messages` array passed to `litellm.completion()` with 
 The default conversation shape produced by `lips create` is:
 
 ```
-user      → contents of source repo (all files as <file> blocks)
-assistant → "I see. This is the current state of the input repo..."
-user      → contents of target repo (all files as <file> blocks)
-assistant → "I see. This is the current state of the output repo..."
-user      → build prompt text
-assistant → "I see. This is the main instruction..."
-user      → format prompt
-assistant → "I see. This is the output format..."
-user      → "Start."
+system    → "You are a File Repository Assistant..."
+user      → "print <SOURCE_MASK>"
+assistant → contents of source repo (all files as <file> blocks)
+user      → "print <TARGET_MASK>"
+assistant → contents of target repo (all files as <file> blocks)
+user      → "echo build_prompt"
+assistant → build prompt text
+user      → "echo format_prompt"
+assistant → contents of format.md
+user      → "start"
 ```
 
-The interleaved assistant acknowledgements serve as a **conversation priming** technique: by having the assistant "confirm understanding" of each input block, the model is less likely to confuse the source and target repos or misinterpret the format instructions. This is a deliberate prompt engineering choice baked into the default template.
+This **simulate/echo** pattern has the assistant produce each piece of context as if responding to a query, which primes the model to treat the injected content as facts it has already "stated" rather than external instructions it is being shown. The result is that the model attends more reliably to the repo contents and the build prompt when it finally receives `"start"`.
 
-The `messages` array in `config.json` is fully customisable — you can add, remove, or reorder turns to suit your use case.
+The `messages` array in `config.json` is fully customisable — you can add, remove, or reorder turns to suit your use case. The format rules are loaded from `format.md` via a `[write:...]` link in the `echo format_prompt` assistant turn, so you can update the format contract by editing `format.md` alone.
 
 ---
 
@@ -476,7 +497,7 @@ The LLM is instructed to return files using a simple XML envelope:
 </file>
 ```
 
-Rules enforced by the format prompt:
+Rules enforced by `format.md`:
 
 - Paths are relative, beginning with `./`, which maps to the target stage's `repo/`.
 - Every `<file>` tag must contain the **complete** file contents — no partial files, no ellipsis placeholders.
@@ -555,7 +576,7 @@ The CLI entry point. Registered as the `lips` console script in `pyproject.toml`
 
 **`main()`** — Loads `./.env` via `python-dotenv`, dispatches to the appropriate handler:
 
-- **`build`**: Loads `config.json`, reads the API key from the environment, resolves the stage path, constructs a `Lips` workspace from `<stage>/../../`, finds the matching `Stage` object by comparing resolved paths, auto-detects the script suffix, and calls `stage.build(script, messages, format_prompt, api_key, generate_config)`.
+- **`build`**: Loads `config.json`, reads the API key from the environment, resolves the stage path, constructs a `Lips` workspace from `<stage>/../../`, finds the matching `Stage` object by comparing resolved paths, auto-detects the script suffix, and calls `stage.build(script, messages, api_key, generate_config)`.
 - **`purge`**: Constructs a `Lips` workspace (one level up for `--pipeline`, two levels for stage), finds the matching pipeline or stage, and calls `.purge()`.
 - **`create`**: Delegates to `lips.commands.create.create(pipeline_path)`.
 
@@ -597,7 +618,7 @@ Represents a single stage. `self.root = pipeline.root / name`.
 
 **`purge()`** — Deletes every file and subdirectory in `repo/` except `.gitignore`. Deletes the entire `out/` directory.
 
-**`build(script, messages, format_prompt, api_key, generate_config)`** — Reads the build script from `build/<script>`, dispatches to `build_md`, `build_py`, or `build_sh` based on suffix.
+**`build(script, messages, api_key, generate_config)`** — Reads the build script from `build/<script>`, dispatches to `build_md`, `build_py`, or `build_sh` based on suffix.
 
 **`build_py(code)`** — Runs `code` via `python -` with cwd set to `repo/`.
 
@@ -610,10 +631,10 @@ Represents a single stage. `self.root = pipeline.root / name`.
 4. `resolve_env(text, base_env)` — substitutes from the caller-provided base environment.
 5. `resolve_links(text, root)` — expands `[write:...]` links.
 
-**`build_md(md_text, messages, format_prompt, api_key, generate_config)`** — The main LLM build path:
+**`build_md(md_text, messages, api_key, generate_config)`** — The main LLM build path:
 1. Calls `resolve()` on the script text with `base_env = {'SOURCE': self.name}` to get `build_prompt`, `env`, `source_ignore`, `target_ignore`.
 2. Resolves `target = self.pipeline.stages[env['TARGET']]`.
-3. Iterates over every message in `messages`, calling `resolve()` on each `content` with a base env that injects `BUILD_PROMPT`, `FORMAT_PROMPT`, `SOURCE_MASK`, `TARGET_MASK`, `SOURCE_PATH`, `TARGET_PATH`.
+3. Iterates over every message in `messages`, calling `resolve()` on each `content` with a base env that injects `LIPS_PATH`, `PIPE_PATH`, `STAGE_PATH`, `BUILD_PROMPT`, `SOURCE_MASK`, `TARGET_MASK`, `SOURCE_PATH`, `TARGET_PATH`.
 4. Logs the resolved messages to `out/`.
 5. Calls `litellm.completion(**generate_config, messages=messages, api_key=api_key, stream=False)`.
 6. Logs the raw response text to `out/`.
@@ -630,9 +651,9 @@ Represents a single stage. `self.root = pipeline.root / name`.
 
 The interactive pipeline creation wizard. Entirely self-contained; no dependency on `lips.py`.
 
-**`create(pipeline_path: str)`** — Top-level entry point. Four logical steps:
+**`create(pipeline_path: str)`** — Top-level entry point. `lips_root` is resolved as `Path(pipeline_path).parent`, so the pipeline directory is the **parent** of the argument passed on the CLI (e.g. `lips create workspace/my-pipeline` → `lips_root = workspace/my-pipeline/`). Four logical steps:
 
-1. **Config & model** (skipped if pipeline already exists): calls `select_model()`, prompts for `max_tokens` and `temperature`, derives `api_var` from the model string prefix (e.g. `"anthropic/..."` → `"ANTHROPIC_API_KEY"`), writes `config.json` with the full `MESSAGES_BLOCK` and `FORMAT_BLOCK`.
+1. **Config & model** (skipped if pipeline already exists): calls `select_model()`, prompts for `max_tokens` and `temperature`, derives `api_var` from the model string prefix (e.g. `"anthropic/..."` → `"ANTHROPIC_API_KEY"`), writes `config.json` with the full `MESSAGES_BLOCK` and writes `FORMAT_MD_CONTENT` to `format.md`.
 2. **API key** (skipped if `.env` exists): writes `<api_var>=<key>` to `.env`.
 3. **Stage collection**: calls `collect_stages()`, which loops prompting for stage names and build file names, with conflict detection against both existing disk files and the in-memory queue.
 4. **Materialisation**: calls `materialise_stages()`, which creates directories and writes build files, then calls `touch_lips_config()`.
@@ -641,9 +662,9 @@ The interactive pipeline creation wizard. Entirely self-contained; no dependency
 
 **`_ask_build_file(lips_root, stage_name, queue)`** — Validates the chosen build file stem against both files already on disk and stems already queued for the same stage name, preventing collisions.
 
-**`materialise_stages(lips_root, specs)`** — For each `StageSpec`, creates `build/` and `repo/` directories (if the stage is new) and writes the build file. New intermediate stages get an `env` block pointing to the next stage plus a one-liner transform prompt. The final stage gets a self-update prompt with no `env` block (so `TARGET` defaults to itself).
+**`materialise_stages(lips_root, specs)`** — For each `StageSpec`, creates `build/` and `repo/` directories (if the stage is new) and writes the build file. New intermediate stages get an `env` block pointing to the next stage plus a one-liner transform prompt. The final stage gets a self-update prompt with no `env` block (so `TARGET` defaults to itself). Calls `touch_lips_config()` after all stages are written.
 
-**`touch_lips_config(lips_root, specs)`** — Writes or merges a `lips-config.json` at the workspace level, recording the pipeline graph as `{ pipelines: { <name>: { graph: { <stage>: { <buildfile>: <next_stage> } } } } }`. This is a documentation/tooling aid; LIPS does not read it at runtime.
+**`touch_lips_config(lips_root, specs)`** — Writes or merges a `config.json` at the workspace level (`lips_root.parent`), recording the pipeline graph as `{ pipelines: { <name>: { graph: { <stage>: { <buildfile>: <next_stage> } } } } }`. This is a documentation/tooling aid; LIPS does not read it at runtime.
 
 **`select_model()`** — Displays a numbered provider/model menu. Supports manual entry (`0`). Hard-coded provider catalogue:
 
@@ -651,7 +672,7 @@ The interactive pipeline creation wizard. Entirely self-contained; no dependency
 |---|---|---|
 | 1 | Mistral | `mistral-large-latest`, `mistral-medium-latest`, `mistral-small-latest` |
 | 2 | OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
-| 3 | Anthropic | `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
+| 3 | Anthropic | `claude-opus-4-5`, `claude-sonnet-4-5`, `claude-haiku-4-5` |
 | 4 | Google | `gemini-2.0-flash`, `gemini-2.0-pro` |
 
 ---
@@ -749,17 +770,7 @@ Returns `dict[str, str]` mapping path → content (stripped of leading/trailing 
 
 Contains a single module-level constant:
 
-**`output_format_prompt`** — The default format instructions injected as `<env:FORMAT_PROMPT>`. Key rules it communicates to the LLM:
-
-- Use `<file path="./...">` with relative paths starting from `./`.
-- Include only new or modified files (not unchanged ones).
-- Every file tag must have complete contents — no placeholders.
-- Delete a file by writing an empty tag.
-- For images that need to be created, write a `<name>.prompt.md` instead.
-- If the output already meets the standard, generate nothing.
-- Analyse and reason before generating.
-
-This constant is used by `lips/commands/create.py` as the `FORMAT_BLOCK` embedded into newly created `config.json` files, and also remains available for programmatic use.
+**`output_format_prompt`** — An earlier version of the output format rules. This module is **not used by the current codebase** — `create.py` now writes its own `FORMAT_MD_CONTENT` string directly to a `format.md` file on disk, and the message template loads that file at build time via a `[write:...]` link. `prompts.py` is retained for reference but can be considered legacy.
 
 ---
 

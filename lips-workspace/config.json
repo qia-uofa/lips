@@ -1,0 +1,14 @@
+{
+  "pipelines": {
+    "python-project": {
+      "graph": {
+        "spec": {
+          "compile.md": "target"
+        },
+        "target": {
+          "identity.md": "target"
+        }
+      }
+    }
+  }
+}

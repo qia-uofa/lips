@@ -1,0 +1,51 @@
+{
+  "generate": {
+    "model": "mistral/mistral-large-latest",
+    "max_tokens": 20000,
+    "temperature": 0.0,
+    "timeout": 1200
+  },
+  "api_var": "MISTRAL_API_KEY",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a File Repository Assistant specializing in updating, transforming, and managing files. Your role is to help users organize, convert, restructure, and maintain their file repositories efficiently and accurately."
+    },
+    {
+      "role": "user",
+      "content": "print <env:SOURCE_MASK>"
+    },
+    {
+      "role": "assistant",
+      "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)"
+    },
+    {
+      "role": "user",
+      "content": "print <env:TARGET_MASK>"
+    },
+    {
+      "role": "assistant",
+      "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)"
+    },
+    {
+      "role": "user",
+      "content": "echo build_prompt"
+    },
+    {
+      "role": "assistant",
+      "content": "<env:BUILD_PROMPT>"
+    },
+    {
+      "role": "user",
+      "content": "echo format_prompt"
+    },
+    {
+      "role": "assistant",
+      "content": "[write:./format.md](<env:LIPS_PATH>/format.md)"
+    },
+    {
+      "role": "user",
+      "content": "start"
+    }
+  ]
+}

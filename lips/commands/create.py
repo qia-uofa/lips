@@ -100,43 +100,59 @@ DEFAULT_API_CONFIG = {
     "model": "mistral/mistral-large-latest",
     "max_tokens": 20000,
     "temperature": 0,
+    "timeout": 1200,
 }
 
+SYSTEM_MESSAGE = (
+    "You are a File Repository Assistant specializing in updating, transforming, and managing files. "
+    "Your role is to help users organize, convert, restructure, and maintain their file repositories "
+    "efficiently and accurately."
+)
+
 MESSAGES_BLOCK = [
-    {"role": "user",      "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)"},
-    {"role": "assistant", "content": "I see. This is the current state of the input repo. I will use it as the source material to generate or update the output repo."},
-    {"role": "user",      "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)"},
-    {"role": "assistant", "content": "I see. This is the current state of the output repo. I will use input repo as the source material to generate or update it."},
-    {"role": "user",      "content": "<env:BUILD_PROMPT>"},
-    {"role": "assistant", "content": "I see. This is the main instruction for generating/updating the repo of the target repo."},
-    {"role": "user",      "content": "<env:FORMAT_PROMPT>"},
-    {"role": "assistant", "content": "I see. This is the output format for generating/updating the repo of <target.name>."},
-    {"role": "user",      "content": "Start."},
+    {"role": "system",    "content": SYSTEM_MESSAGE},
+    {"role": "user",      "content": "print <env:SOURCE_MASK>"},
+    {"role": "assistant", "content": "[write:<env:SOURCE_MASK>](<env:SOURCE_PATH>)"},
+    {"role": "user",      "content": "print <env:TARGET_MASK>"},
+    {"role": "assistant", "content": "[write:<env:TARGET_MASK>](<env:TARGET_PATH>)"},
+    {"role": "user",      "content": "echo build_prompt"},
+    {"role": "assistant", "content": "<env:BUILD_PROMPT>"},
+    {"role": "user",      "content": "echo format_prompt"},
+    {"role": "assistant", "content": "[write:./format.md](<env:LIPS_PATH>/format.md)"},
+    {"role": "user",      "content": "start"},
 ]
 
-FORMAT_BLOCK = (
-    "Generate only the files that need to be created or updated. "
-    "Use the following XML format with absolute paths:\n\n"
-    "<file path=\"./file-1.txt\">\nfile content here\n...\n</file>\n\n"
-    "<file path=\"./file-2.json\">\n{\n    \"key1\": \"value1\",\n    \"key2\": \"value2\"\n}\n</file>\n\n"
-    "Rules:\n"
-    "- Start by analyzing and breaking down the problem before doing anything else.\n"
-    "- Before generating each file, write down your reasoning through the logic and its impact on the overall repository structure.\n"
-    "- Every file tag must contain the complete file contents — no partial files, no placeholders.\n"
-    "- Use relative paths for all files, beginning with \"./\", which is the \"<masked-path-to-output-repo>\". \n"
-    "- Only include files that are new or modified.\n"
-    "- If an image file needs to be generated, generate a prompt file with the extension \".prompt.md\". "
-    "For example, if 'icon.png' needs to be generated, instead, generate 'icon.png.prompt.md', "
-    "which includes a elaborate prompt for further generation of the image. \n"
-    "- Respect my last prompt message, only generate or update files specofied by it. \n"
-    "- The output files might be partially generated already. In that case, only generate the missing files. \n"
-    "- If the output files already meet the generation standard, opt out and don't generate anything. \n\n"
-    "- You can delete a file by overwriting an STRICTLY empty (no spaces, no endlines) file to it:\n"
-    "<file path=\"./deleted-file.ext\"></file>\n\n"
-    "- When overwriting, remember to mirror the exact path of the ovverwriten file, but replace the masked path with \"./\". "
-    "For example, overwrite <file path=\"<masked-path-to-output-repo>/to-be-overwritten-file.ext\">...</file> "
-    "with <file path=\"./to-be-overwritten-file.ext\">...</file>"
-)
+FORMAT_MD_CONTENT = """\
+Generate only the files that need to be created or updated. Use the following XML format with absolute paths:
+
+<file path="./file-1.txt">
+file content here
+...
+</file>
+
+<file path="./file-2.json">
+{
+    "key1": "value1",
+    "key2": "value2"
+}
+</file>
+
+Rules:
+- Start by analyzing and breaking down the problem before doing anything else.
+- Before generating each file, write down your reasoning through the logic and its impact on the overall repository structure.
+- Every file tag must contain the complete, verbatim file contents — no partial files, no placeholders, no commentary inside file tags.
+- Use relative paths for all files, beginning with "./", which is the "<masked-path-to-output-repo>".
+- Only include files that are new or modified. If no files need to be created or modified, output nothing — do not emit any file tags at all.
+- If an image file needs to be generated, generate a prompt file with the extension ".prompt.md". For example, if 'icon.png' needs to be generated, instead generate 'icon.png.prompt.md', which includes an elaborate prompt for further generation of the image.
+- Respect my last prompt message — only generate or update files specified by it.
+- The output files might be partially generated already. In that case, only generate the missing files.
+- If the output files already meet the generation standard, output nothing.
+
+- You can delete a file by writing a strictly empty file tag (no spaces, no newlines between the tags):
+<file path="./deleted-file.ext"></file>
+
+- When overwriting, mirror the exact path of the overwritten file but replace the masked path with "./". For example, overwrite <file path="<masked-path-to-output-repo>/to-be-overwritten-file.ext">...</file> with <file path="./to-be-overwritten-file.ext">...</file>
+"""
 
 BUILD_PROMPT_TRANSFORM = (
     "Your task is to transform the repository <env:SOURCE> to <env:TARGET> by generating files. "
@@ -315,44 +331,6 @@ def _build_file_content(build_file: str, next_stage: str | None) -> str:
         return f"{BUILD_PROMPT_FINAL}\n"
 
 
-# ── workspace lips-config.json ───────────────────────────────────────────────
-
-def touch_lips_config(lips_root: Path, specs: list[StageSpec]):
-    """
-    Create or update <workspace>/lips-config.json with the pipeline graph.
-    Graph shape:
-      { "pipelines": { "<pipeline>": { "graph": { "<stage>": { "<buildfile>": "<next_stage|null>" } } } } }
-    Merges into any existing content; never clobbers unrelated keys.
-    """
-    workspace = lips_root.parent
-    config_path = workspace / "lips-config.json"
-
-    # Load existing or start fresh
-    if config_path.exists():
-        try:
-            data = json.loads(config_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            warn("lips-config.json is malformed — overwriting.")
-            data = {}
-    else:
-        data = {}
-
-    # Build graph for this pipeline
-    graph = {}
-    for i, spec in enumerate(specs):
-        is_final = spec.is_final or (i == len(specs) - 1)
-        next_stage = specs[i + 1].name if not is_final and i + 1 < len(specs) else spec.name
-        graph[spec.name] = {spec.build_file: next_stage}
-
-    # Merge
-    pipelines = data.setdefault("pipelines", {})
-    pipeline_name = lips_root.name
-    pipelines.setdefault(pipeline_name, {})["graph"] = graph
-
-    config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    ok(f"Updated  {BOLD}{config_path}{RESET}")
-
-
 # ── materialise all stages at once ───────────────────────────────────────────
 
 def materialise_stages(lips_root: Path, specs: list[StageSpec]):
@@ -394,6 +372,44 @@ def materialise_stages(lips_root: Path, specs: list[StageSpec]):
     touch_lips_config(lips_root, specs)
 
 
+# ── workspace config.json ───────────────────────────────────────────────
+
+def touch_lips_config(lips_root: Path, specs: list[StageSpec]):
+    """
+    Create or update <workspace>/config.json with the pipeline graph.
+    Graph shape:
+      { "pipelines": { "<pipeline>": { "graph": { "<stage>": { "<buildfile>": "<next_stage|null>" } } } } }
+    Merges into any existing content; never clobbers unrelated keys.
+    """
+    workspace = lips_root.parent
+    config_path = workspace / "config.json"
+
+    # Load existing or start fresh
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            warn("config.json is malformed — overwriting.")
+            data = {}
+    else:
+        data = {}
+
+    # Build graph for this pipeline
+    graph = {}
+    for i, spec in enumerate(specs):
+        is_final = spec.is_final or (i == len(specs) - 1)
+        next_stage = specs[i + 1].name if not is_final and i + 1 < len(specs) else spec.name
+        graph[spec.name] = {spec.build_file: next_stage}
+
+    # Merge
+    pipelines = data.setdefault("pipelines", {})
+    pipeline_name = lips_root.name
+    pipelines.setdefault(pipeline_name, {})["graph"] = graph
+
+    config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    ok(f"Updated  {BOLD}{config_path}{RESET}")
+
+
 # ── summary ───────────────────────────────────────────────────────────────────
 
 def print_summary(lips_root: Path, specs: list[StageSpec]):
@@ -419,7 +435,7 @@ def create(pipeline_path: str):
     banner()
     TOTAL_STEPS = 4
 
-    lips_root = Path(pipeline_path).expanduser().resolve()
+    lips_root = Path(pipeline_path).parent.expanduser().resolve()
     pipeline_exists = lips_root.exists()
     info(f"Pipeline path: {BOLD}{lips_root}{RESET}")
 
@@ -463,13 +479,18 @@ def create(pipeline_path: str):
                 "model": model,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "timeout": DEFAULT_API_CONFIG["timeout"],
             },
             "api_var": api_var,
             "messages": MESSAGES_BLOCK,
-            "format": FORMAT_BLOCK,
         }
         config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         ok(f"Saved config.json  {DIM}(api_var: {api_var}){RESET}")
+
+        format_path = lips_root / "format.md"
+        if not format_path.exists():
+            format_path.write_text(FORMAT_MD_CONTENT, encoding="utf-8")
+            ok("Saved format.md")
 
         step(3, TOTAL_STEPS, "API key")
         if env_path.exists():
