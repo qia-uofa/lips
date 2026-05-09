@@ -64,12 +64,12 @@ class Stage:
         if out_path.exists() and out_path.is_dir():
             shutil.rmtree(out_path)
    
-    def build(self, script, messages, api_key=None, generate_config=None):
+    def build(self, script, messages, message_path, api_key=None, generate_config=None):
         suffix = script.suffix
         with open(self.root / f'build/{script}', 'r', encoding='utf-8') as f:
             text = f.read()
         if suffix == '.md':
-            self.build_md(text, messages, api_key, generate_config)
+            self.build_md(text, messages, message_path, api_key, generate_config)
         elif suffix == '.py':
             self.build_py(text)
         elif suffix == '.sh':
@@ -107,14 +107,22 @@ class Stage:
         text = resolve_links(text, root)
         return text, env, source_ignore, target_ignore
     
-    def build_md(self, md_text, messages, api_key, generate_config):
-        
+    def build_md(self, md_text, messages, message_path, api_key, generate_config):
+        base_env = {
+                    'LIPS_PATH': self.pipeline.lips.root,
+                    'PIPE_PATH': self.pipeline.root,
+                    'STAGE_PATH': self.root,
+                    'SOURCE_MASK': '<masked/path/to/input/repo>',
+                    'TARGET_MASK':  '<masked/path/to/output/repo>',
+                    'SOURCE_PATH': self.root / 'repo'
+        }
         build_prompt, env, _, _ = self.resolve(
             md_text, 
             self.root / 'build',
-            {
+            base_env | {
+                'PATH': self.root / 'build',
                 'SOURCE': self.name
-            })
+        })
 
         target = self.pipeline.stages[env['TARGET']]
         
@@ -122,15 +130,10 @@ class Stage:
             content, env, _, _ = self.resolve(
                 message['content'], 
                 Path(''), 
-                {
-                    'LIPS_PATH': self.pipeline.lips.root,
-                    'PIPE_PATH': self.pipeline.root,
-                    'STAGE_PATH': self.root,
-                    'BUILD_PROMPT': build_prompt,
-                    'SOURCE_MASK': '<masked/path/to/input/repo>',
-                    'TARGET_MASK':  '<masked/path/to/output/repo>',
-                    'SOURCE_PATH': self.root / 'repo',
+                base_env | {
+                    'PATH': message_path,
                     'TARGET_PATH': target.root / 'repo',
+                    'BUILD_PROMPT': build_prompt
                 })
             message['content'] = content
 

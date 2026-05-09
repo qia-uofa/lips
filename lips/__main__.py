@@ -11,25 +11,27 @@ def parse_args():
     subparsers = parser.add_subparsers(dest='command')
 
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
-    build.add_argument('script', nargs='?', default='compile', help='Use $source$/build/$script$.md as prompt.')
+    build.add_argument('script', nargs='?', default='main', help='Use $source$/build/$script$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
-    build.add_argument('--config', '-a', default='config.json', help='')
+    build.add_argument('--config', '-c', default='config.json', help='')
+    build.add_argument('--dotenv', '-d', default='./', help='')
 
     purge = subparsers.add_parser('purge', help='')
     purge.add_argument('--pipeline', '-p', action='store_true', help='')
     purge.add_argument('dir', help='')
 
-    create = subparsers.add_parser('create', help='Create an empty pipeline.')
-    create.add_argument('pipeline', default='./', help='')
+    #create = subparsers.add_parser('create', help='Create an empty pipeline.')
+    #create.add_argument('pipeline', default='./', help='')
 
     args = parser.parse_args()
     return args
 
 def main():
-    load_dotenv('./.env')
+
     args = parse_args()
 
     if args.command == 'build':
+        load_dotenv(Path(os.getenv('dotenv')) / '.env')
         with open(args.config) as f:
             config = json.load(f)
         api_key = os.getenv(config['api_var'])
@@ -52,7 +54,7 @@ def main():
                             raise FileNotFoundError(
                                 f"No script found for {args.script!r} in {build_dir}"
                             )
-                    stage.build(script, config['messages'], api_key, config['generate'])
+                    stage.build(script, config['messages'], args.config.parent, api_key, config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()
@@ -70,8 +72,8 @@ def main():
                 if stage.root.resolve() == path and not args.pipeline:
                     stage.purge()
 
-    elif args.command == 'create':
-        create(args.pipeline)
+    #elif args.command == 'create':
+    #    create(args.pipeline)
 
     else:
         print("No command specified. Use --help for usage.")
