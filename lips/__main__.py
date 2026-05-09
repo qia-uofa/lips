@@ -31,7 +31,7 @@ def main():
     args = parse_args()
 
     if args.command == 'build':
-        load_dotenv(Path(os.getenv('dotenv')) / '.env')
+        load_dotenv(Path(args.dotenv) / '.env')
         with open(args.config) as f:
             config = json.load(f)
         api_key = os.getenv(config['api_var'])
@@ -54,7 +54,7 @@ def main():
                             raise FileNotFoundError(
                                 f"No script found for {args.script!r} in {build_dir}"
                             )
-                    stage.build(script, config['messages'], args.config.parent, api_key, config['generate'])
+                    stage.build(script, config['messages'], Path(args.config).parent, api_key, config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()
