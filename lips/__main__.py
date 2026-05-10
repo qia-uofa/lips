@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 import os
 
 from .commands.create import create
-
+from .utils.parse_scripts import env_from_script
 def parse_args():
     parser = argparse.ArgumentParser(description="Process input folder for API response.")
     subparsers = parser.add_subparsers(dest='command')
 
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
-    build.add_argument('script', nargs='?', default='main', help='Use $source$/build/$script$.md as prompt.')
+    build.add_argument('build_file', nargs='?', default='main', help='Use $source$/build/$build_file$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
     build.add_argument('--config', '-c', default='config.json', help='')
     build.add_argument('--dotenv', '-d', default='./', help='')
@@ -43,18 +43,30 @@ def main():
         for pipeline in lips.pipelines.values():
             for stage in pipeline.stages.values():
                 if stage.root.resolve() == path:
-                    script = Path(args.script)
+                    build_file = Path(args.build_file)
+                    build_file_full = None
                     build_dir = path / 'build'
-                    if not (build_dir / script).exists():
-                        for suffix in ['.md', '.py', '.sh', '.bat']:
-                            if (build_dir / script.with_suffix(suffix)).exists():
-                                script = script.with_suffix(suffix)
+                    for suffix in ['.md', '.py', '.sh', '.bat']:
+                        if (build_dir / build_file.with_suffix(suffix)).exists():
+                                build_file_full = build_file.with_suffix(suffix)
                                 break
-                        else:
-                            raise FileNotFoundError(
-                                f"No script found for {args.script!r} in {build_dir}"
+                            
+                    if build_file_full is None:
+                        for file in build_dir.iterdir():
+                            with open(file, 'r', encoding="utf-8") as f:
+                                _, env = env_from_script(f.read(), stage)
+
+                            if "ALIAS" in env.keys():
+                                if env["ALIAS"] == str(build_file):
+                                    build_file_full = Path(file.name)
+                                    break
+                                
+                    if build_file_full is None:
+                        raise FileNotFoundError(
+                                f"No build_file found for {args.build_file!r} in {build_dir}"
                             )
-                    stage.build(script, config['messages'], Path(args.config).parent, api_key, config['generate'])
+                        
+                    stage.build(build_file_full, config['messages'], Path(args.config).parent, api_key, config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()
