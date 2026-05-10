@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 import pdfplumber
 import pypdf
+import pathspec
 
 LINK_RE = re.compile(r'\[write:([^\]]+)\]\(([^)]+)\)')
 
@@ -23,22 +24,25 @@ def _file_block(virtual_path: str, real_path: Path) -> str:
     content = _read_text(real_path)
     return f'<file path="{virtual_path}">\n{content}\n</file>'
 
-def _dir_block(virtual_root: str, real_root: Path) -> str:
+def _dir_block(virtual_root: str, real_root: Path, ignore='') -> str:
     virtual_root = virtual_root.rstrip('/')
     blocks = []
+    
+    spec = pathspec.PathSpec.from_lines('gitwildmatch', ignore.splitlines())
     for real_file in sorted(p for p in real_root.rglob('*') if p.is_file()):
         rel = real_file.relative_to(real_root).as_posix()
-        blocks.append(_file_block(f"{virtual_root}/{rel}", real_file))
+        if not spec.match_file(rel):
+            blocks.append(_file_block(f"{virtual_root}/{rel}", real_file))
     return "\n".join(blocks)
 
-def resolve_links(md_text: str, root) -> str:
+def resolve_links(md_text: str, root, ignore='') -> str:
     def replace(match: re.Match) -> str:
         virtual_path, real_path = match.group(1), match.group(2)
         p = Path(root / real_path)
         if p.is_file():
             return _file_block(virtual_path, p)
         if p.is_dir():
-            return _dir_block(virtual_path, p)
+            return _dir_block(virtual_path, p, ignore)
         return match.group(0)
 
     return LINK_RE.sub(replace, md_text)

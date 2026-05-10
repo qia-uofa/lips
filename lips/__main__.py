@@ -26,11 +26,9 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def main():
-
-    args = parse_args()
-
+def run(args):
     if args.command == 'build':
+
         load_dotenv(Path(args.dotenv) / '.env')
         with open(args.config) as f:
             config = json.load(f)
@@ -90,5 +88,9 @@ def main():
     else:
         print("No command specified. Use --help for usage.")
 
+def main():
+    args = parse_args()
+    run(args)
+    
 if __name__ == '__main__':
     main()
