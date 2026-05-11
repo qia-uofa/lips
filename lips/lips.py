@@ -66,14 +66,15 @@ class Stage:
             self.build_sh(text)
 
     def build_py(self, code):
-        code, env, _, _ = self.resolve(code, self.root, {
+        env = self.pipeline.lips.env | {
             'PATH': self.pipeline.root,
             'LIPS_PATH': self.pipeline.lips.root,
             'PIPE_PATH': self.pipeline.root,
             'STAGE_PATH': self.root,
             'SOURCE': self.name,
             'SOURCE_PATH': self.root / 'repo',
-        })
+        }
+        code, env, _, _ = self.resolve(code, self.root, env)
         subprocess.run(
             ['python', '-'],
             input=code,
@@ -83,14 +84,15 @@ class Stage:
         )
         
     def build_sh(self, code):
-        code, env, _, _ = self.resolve(code, self.root, {
+        env = self.pipeline.lips.env | {
             'PATH': self.pipeline.root,
             'LIPS_PATH': self.pipeline.lips.root,
             'PIPE_PATH': self.pipeline.root,
             'STAGE_PATH': self.root,
             'SOURCE': self.name,
             'SOURCE_PATH': self.root / 'repo',
-        })
+        }
+        code, env, _, _ = self.resolve(code, self.root, env)
         # Windows
         if os.name == "nt":
             # Reuse current shell if possible
@@ -123,10 +125,7 @@ class Stage:
         return text, base_env | env, source_ignore, target_ignore
     
     def build_md(self, md_text, messages, message_path, api_key, generate_config):
-        
-        
-        
-        base_env = {
+        base_env = self.pipeline.lips.env | {
                     'LIPS_PATH': self.pipeline.lips.root,
                     'PIPE_PATH': self.pipeline.root,
                     'STAGE_PATH': self.root,
