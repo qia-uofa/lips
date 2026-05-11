@@ -12,7 +12,8 @@ from .utils.parse_files import parse_files
 
 
 class Lips:
-    def __init__(self, root):
+    def __init__(self, root, env={}):
+        self.env = env
         self.root = Path(root).resolve()
         self.pipelines = {}
         for root in self.root.iterdir():
@@ -100,7 +101,7 @@ class Stage:
 
             subprocess.run(
                 shell,
-                input=code,
+                input=code + '\n',
                 text=True,
                 shell=True,
                 check=True,
@@ -110,7 +111,7 @@ class Stage:
             shell = os.environ.get("SHELL", "/bin/sh")
             subprocess.run(
                 [shell, "-s"],
-                input=code,
+                input=code + '\n',
                 text=True,
                 check=True,
                 cwd=env['PATH']

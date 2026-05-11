@@ -37,7 +37,7 @@ def run(args):
         path = Path(args.stage).resolve()
 
         from .lips import Lips
-        lips = Lips(path / '../../')
+        lips = Lips(path / '../../', os.environ)
         for pipeline in lips.pipelines.values():
             for stage in pipeline.stages.values():
                 if stage.root.resolve() == path:
