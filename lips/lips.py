@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import os
 
-from .utils.parse_scripts import env_from_script, ignore_from_script
+from .utils.parse_build_files import env_from_build_file, ignore_from_build_file
 from .utils.resolve_md import resolve_links, resolve_env
 from .utils.parse_files import parse_files
 
@@ -117,8 +117,8 @@ class Stage:
             )
 
     def resolve(self, text, root, base_env={}):
-        text, env = env_from_script(text, self)
-        text, source_ignore, target_ignore = ignore_from_script(text)
+        text, env = env_from_build_file(text)
+        text, source_ignore, target_ignore = ignore_from_build_file(text)
         text = resolve_env(text, env)
         text = resolve_env(text, base_env)
         text = resolve_links(text, root)

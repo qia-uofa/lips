@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 
 from .commands.create import create
-from .utils.parse_scripts import env_from_script
+from .utils.parse_build_files import env_from_build_file
 def parse_args():
     parser = argparse.ArgumentParser(description="Process input folder for API response.")
     subparsers = parser.add_subparsers(dest='command')
@@ -60,7 +60,7 @@ def run(args):
                     if build_file_full is None:
                         for file in build_dir.iterdir():
                             with open(file, 'r', encoding="utf-8") as f:
-                                _, env = env_from_script(f.read(), stage)
+                                _, env = env_from_build_file(f.read())
 
                             if "ALIAS" in env.keys():
                                 if env["ALIAS"] == str(build_file):

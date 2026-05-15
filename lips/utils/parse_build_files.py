@@ -8,13 +8,11 @@ __pycache__
 *.verify.md
 '''
 
-def env_from_script(md_text: str, stage, quot=r'```') -> dict:
+def env_from_build_file(md_text: str, quot=r'```') -> dict:
     """Extract env variables from env blocks in markdown."""
     env_vars = {}
     pattern = rf"{quot}env\n(.*?){quot}"
     match = re.findall(pattern, md_text, re.DOTALL)
-    if match == []:
-        return md_text, { "TARGET": stage.name }
     for block in match:
         for line in block.splitlines():
             line = line.strip()
@@ -24,7 +22,7 @@ def env_from_script(md_text: str, stage, quot=r'```') -> dict:
     md_text = re.sub(pattern, '', md_text, flags=re.DOTALL)
     return md_text, env_vars
 
-def repo_ignore_from_script(md_text, which, quot='```'):
+def repo_ignore_from_build_file(md_text, which, quot='```'):
     """Extract env variables from ```env blocks in markdown."""
     ignores = []
     pattern =  rf"{quot}{which}ignore\n(.*?){quot}"
@@ -40,7 +38,7 @@ def repo_ignore_from_script(md_text, which, quot='```'):
     md_text = re.sub(pattern, '', md_text, flags=re.DOTALL)
     return md_text, '\n'.join(ignores)
 
-def ignore_from_script(md_text, quot='```'):
-    md_text, source_ignore = repo_ignore_from_script(md_text, 'source', quot)
-    md_text, target_ignore = repo_ignore_from_script(md_text, 'target', quot)
+def ignore_from_build_file(md_text, quot='```'):
+    md_text, source_ignore = repo_ignore_from_build_file(md_text, 'source', quot)
+    md_text, target_ignore = repo_ignore_from_build_file(md_text, 'target', quot)
     return md_text, source_ignore, target_ignore
