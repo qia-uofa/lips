@@ -74,7 +74,7 @@ class Stage:
             'SOURCE': self.name,
             'SOURCE_PATH': self.root / 'repo',
         }
-        code, env, _, _ = self.resolve(code, self.root, env)
+        _, env, _, _ = self.resolve(code, self.root, env)
         subprocess.run(
             ['python', '-'],
             input=code,
@@ -170,8 +170,12 @@ class Stage:
                 message_base_env
             )
             message['content'] = content
-
-        self.log_json('messages', messages)
+            
+        now  = datetime.now().strftime("%Y%m%d_%H%M%S")
+        short_api = f'{api_key[len(api_key)-7:len(api_key)-1]}'
+        provider, model = generate_config['model'].split('/')
+        out_path = f'{provider}/{short_api}/{model}/{now}'
+        self.log_json(f'{out_path}/messages', messages)
         
         from litellm import completion
         response = completion(
@@ -182,12 +186,12 @@ class Stage:
         )
 
         full_text = response.choices[0].message.content
-
-        self.log_text('response', '.md', full_text)
+        
+        self.log_text(f'{out_path}/response', '.md', full_text)
 
         files_dict = parse_files(full_text)
 
-        self.log_json( "files_dict", files_dict)
+        self.log_json(f'{out_path}/files', files_dict)
 
         for p, content in files_dict.items():
             path = target.root / 'repo' / Path(p)
@@ -202,16 +206,14 @@ class Stage:
         
 
     def log_json(self, name, content):
-        now  = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file = self.root / f'out/{name}_{now}.json'
+        file = self.root / f'out/{name}.json'
         file.parent.mkdir(parents=True, exist_ok=True)
         file.touch()
         with open(file,'w', encoding="utf-8") as f:
             json.dump(content, f, indent=4)
 
     def log_text(self, name, ext, content):
-        now  = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file = self.root / f'out/{name}_{now}{ext}'
+        file = self.root / f'out/{name}{ext}'
         file.parent.mkdir(parents=True, exist_ok=True)
         file.touch()
         with open(file, 'w', encoding='utf-8') as f:
