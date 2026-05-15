@@ -1,7 +1,6 @@
 from pathlib import Path
 import json
 from datetime import datetime
-from litellm import completion
 import shutil
 import subprocess
 import os
@@ -173,7 +172,8 @@ class Stage:
             message['content'] = content
 
         self.log_json('messages', messages)
-
+        
+        from litellm import completion
         response = completion(
             messages=messages,
             api_key=api_key,

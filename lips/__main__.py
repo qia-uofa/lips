@@ -13,8 +13,9 @@ def parse_args():
     build = subparsers.add_parser('build', help='Build the target stage from the source stage.')
     build.add_argument('build_file', nargs='?', default='main', help='Use $source$/build/$build_file$.md as prompt.')
     build.add_argument('stage', help='Path to source stage')
-    build.add_argument('--config', '-c', default='config.json', help='')
+    build.add_argument('--config', '-c', default=None, help='')
     build.add_argument('--dotenv', '-d', default='./', help='')
+    
 
     purge = subparsers.add_parser('purge', help='')
     purge.add_argument('--pipeline', '-p', action='store_true', help='')
@@ -30,8 +31,15 @@ def run(args):
     if args.command == 'build':
 
         load_dotenv(Path(args.dotenv) / '.env')
-        with open(args.config) as f:
-            config = json.load(f)
+        path = Path(args.stage).resolve()
+
+        if args.config is None:
+            p = path
+            while not(p / 'config.json').is_file():
+                p = p.parent
+            config_path = p / 'config.json'
+            with open(config_path) as f:
+                config = json.load(f)
         api_key = os.getenv(config['api_var'])
 
         path = Path(args.stage).resolve()
@@ -64,7 +72,7 @@ def run(args):
                                 f"No build_file found for {args.build_file!r} in {build_dir}"
                             )
                         
-                    stage.build(build_file_full, config['messages'], Path(args.config).parent, api_key, config['generate'])
+                    stage.build(build_file_full, config['messages'], config_path.parent, api_key, config['generate'])
 
     elif args.command == 'purge':
         path = Path(args.dir).resolve()
