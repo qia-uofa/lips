@@ -126,9 +126,9 @@ class Stage:
 
     def resolve(self, text, root, base_env={}):
         text, env = env_from_build_file(text)
-        text, source_ignore, target_ignore = ignore_from_build_file(text)
         text = resolve_env(text, env)
         text = resolve_env(text, base_env)
+        text, source_ignore, target_ignore = ignore_from_build_file(text)
         text = resolve_links(text, root)
         return text, base_env | env, source_ignore, target_ignore
     
