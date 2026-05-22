@@ -7,8 +7,16 @@ import os
 
 from .utils.parse_build_files import env_from_build_file, ignore_from_build_file
 from .utils.resolve_md import resolve_links, resolve_env
-from .utils.parse_files import parse_files
 
+import re
+def parse_files(text: str) -> dict[str, str]:
+    """Extract files from <file path="...">...</file> blocks."""
+    pattern = r'<file path="([^"]+)">(.*?)</file>'
+    
+    return {
+        path: content.strip()
+        for path, content in re.findall(pattern, text, re.DOTALL)
+    }
 
 class Lips:
     def __init__(self, root, env={}):
