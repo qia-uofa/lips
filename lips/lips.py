@@ -185,7 +185,7 @@ class Stage:
         out_path = f'{provider}/{short_api}/{model}/{now}'
         self.log_json(f'{out_path}/messages', messages)
         
-        from litellm import completion
+        from .api.api import completion
         response = completion(
             messages=messages,
             api_key=api_key,
